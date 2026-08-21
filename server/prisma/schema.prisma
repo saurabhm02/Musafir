@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// PostGIS geography columns show up as Unsupported() below -- Prisma can't
+// type them, so queries touching `location`/`polyline` use $queryRaw.
+// auth.users (Supabase Auth's own table) is intentionally not modeled here
+// -- the DB-level foreign key still enforces it, Prisma just doesn't need
+// to query it.
+
+model users {
+  id                String     @id @db.Uuid
+  email             String?
+  username          String?    @unique
+  full_name         String?
+  avatar_url        String?
+  bio               String?
+  location          Unsupported("geography")?
+  home_city         String?
+  preferences       Json?      @default("{}")
+  subscription_tier String?    @default("free")
+  total_distance_km Decimal?   @default(0) @db.Decimal
+  total_trips       Int?       @default(0)
+  created_at        DateTime?  @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?  @default(now()) @db.Timestamptz(6)
+  memories          memories[]
+  pois              pois[]
+  routes            routes[]
+}
+
+model routes {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  origin            String
+  destination       String
+  origin_coord      Unsupported("geography")?
+  destination_coord Unsupported("geography")?
+  polyline          Unsupported("geography")?
+  distance_km       Decimal?          @db.Decimal
+  duration_minutes  Decimal?          @db.Decimal
+  elevation_gain_m  Decimal?          @db.Decimal
+  created_by        String?           @db.Uuid
+  is_public         Boolean?          @default(true)
+  search_count      Int?              @default(0)
+  created_at        DateTime?         @default(now()) @db.Timestamptz(6)
+  poi_route         poi_route[]
+  route_segments    route_segments[]
+  users             users?            @relation(fields: [created_by], references: [id])
+
+  @@index([polyline], map: "routes_polyline_gix", type: Gist)
+}
+
+model route_segments {
+  id               String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  route_id         String?                    @db.Uuid
+  segment_index    Int
+  polyline         Unsupported("geography")
+  start_coord      Unsupported("geography")?
+  end_coord        Unsupported("geography")?
+  distance_km      Decimal?                   @db.Decimal
+  elevation_gain_m Decimal?                   @db.Decimal
+  created_at       DateTime?                  @default(now()) @db.Timestamptz(6)
+  poi_route        poi_route[]
+  routes           routes?                    @relation(fields: [route_id], references: [id], onDelete: Cascade)
+
+  @@index([polyline], map: "route_segments_polyline_gix", type: Gist)
+  @@index([start_coord], map: "route_segments_start_gix", type: Gist)
+}
+
+model pois {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String
+  description   String?
+  category      String
+  subcategory   String?
+  location      Unsupported("geography")
+  address       String?
+  tags          String[]      @default([])
+  price_range   String?
+  best_time     String?
+  avg_rating    Decimal?      @default(0) @db.Decimal
+  total_ratings Int?          @default(0)
+  total_photos  Int?          @default(0)
+  created_by    String?       @db.Uuid
+  is_verified   Boolean?      @default(false)
+  created_at    DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime?     @default(now()) @db.Timestamptz(6)
+  memories      memories[]
+  poi_route     poi_route[]
+  users         users?        @relation(fields: [created_by], references: [id])
+
+  @@index([location], map: "pois_location_gix", type: Gist)
+}
+
+model poi_route {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  poi_id            String?         @db.Uuid
+  route_id          String?         @db.Uuid
+  segment_id        String?         @db.Uuid
+  detour_distance_m Decimal?        @db.Decimal
+  is_on_route       Boolean?        @default(true)
+  pois              pois?           @relation(fields: [poi_id], references: [id], onDelete: Cascade)
+  routes            routes?         @relation(fields: [route_id], references: [id], onDelete: Cascade)
+  route_segments    route_segments? @relation(fields: [segment_id], references: [id], onDelete: Cascade)
+
+  @@index([route_id], map: "poi_route_route_idx")
+  @@index([segment_id], map: "poi_route_segment_idx")
+}
+
+model memories {
+  id             String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id        String?                    @db.Uuid
+  poi_id         String?                    @db.Uuid
+  trip_id        String?                    @db.Uuid
+  photo_url      String
+  thumbnail_url  String?
+  caption        String?
+  visibility     String?                    @default("private")
+  ai_tags        String[]
+  ai_description String?
+  taken_at       DateTime?                  @db.Timestamptz(6)
+  location       Unsupported("geography")?
+  created_at     DateTime?                  @default(now()) @db.Timestamptz(6)
+  pois           pois?                      @relation(fields: [poi_id], references: [id], onDelete: Cascade)
+  users          users?                     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([location], map: "memories_location_gix", type: Gist)
+}

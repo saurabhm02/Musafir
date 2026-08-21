@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "musafir",
+    "slug": "musafir",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/app-icon.icon/Assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.musafir",
+      "icon": "./assets/app-icon.icon"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#231C13",
+        "foregroundImage": "./assets/android-icon.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.anonymous.musafir"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "@maplibre/maplibre-react-native",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Musafir needs access to your photos so you can add one when you save a new place."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "eba17ec6-36da-4b34-aa06-71aaebe4d6ed"
+      }
+    }
+  }
+}

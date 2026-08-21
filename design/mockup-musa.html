@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Musafir — Musa Brand</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* DESIGN.md's decided palette -- Live 3D Map direction */
+    --paper:#F4EEE0; --ink:#231C13; --ink-soft:#5C5140; --accent:#E24E1B; --trail:#33553A;
+    --urban:#D8CDAE; --hill:#7C9464; --peak:#8A8F86; --snow:#EDEEE9; --sky:#CFE3EC; --line:#C9B98F;
+    --accent-tint:#FBE0D4; --trail-tint:#DCE6DD; --ink-tint:#EAE4D6;
+    --shadow: 0 14px 30px -14px rgba(35,28,19,.22);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:#0e1420; font-family:'Poppins',sans-serif; color:var(--ink);
+    display:flex; flex-wrap:wrap; gap:56px; justify-content:center; padding:64px 24px; }
+  .brand-font{ font-family:'Baloo 2', sans-serif; }
+  .frame-label{ text-align:center; color:#7d8aa0; font-family:'Poppins',sans-serif; font-size:12px;
+    letter-spacing:.14em; text-transform:uppercase; margin-bottom:14px; }
+  .device{ width:390px; height:844px; background:var(--paper); border-radius:44px; overflow:hidden; position:relative;
+    box-shadow: 0 40px 80px -30px rgba(0,0,0,.7), 0 0 0 10px #0c0c0c; }
+  .screen{ position:absolute; inset:0; overflow:hidden; }
+  svg{ stroke:currentColor; stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+
+  /* ---------------- 3D MAP (kept real) ---------------- */
+  .map3d{ position:absolute; inset:0; top:0; overflow:hidden; background:var(--sky);
+    perspective:420px; perspective-origin:50% 6%; }
+  .horizon-fade{ position:absolute; left:0; right:0; top:0; height:210px; z-index:3;
+    background:linear-gradient(to bottom, var(--sky) 0%, rgba(207,227,236,.85) 45%, rgba(207,227,236,0) 100%); }
+  .ground{ position:absolute; left:50%; bottom:-40%; width:1400px; height:1400px; margin-left:-700px;
+    transform: rotateX(62deg); transform-origin:bottom center; overflow:hidden; border-radius:2px; }
+  .ground .terrain{ position:absolute; inset:0;
+    background: linear-gradient(to top, var(--urban) 0%, var(--urban) 14%, var(--hill) 40%, var(--peak) 74%, var(--snow) 100%); }
+  .ground .roads{ position:absolute; left:0; right:0; bottom:0; height:38%;
+    background:
+      repeating-linear-gradient(100deg, transparent 0 58px, rgba(255,255,255,.5) 58px 62px),
+      repeating-linear-gradient(10deg, transparent 0 70px, rgba(255,255,255,.35) 70px 73px);
+    mask-image: linear-gradient(to top, black 55%, transparent 100%); }
+  .tree{ position:absolute; width:16px; height:16px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #4C6E45, var(--trail)); box-shadow:2px 3px 0 0 rgba(35,28,19,.14); }
+  .route-svg{ position:absolute; inset:0; overflow:visible; }
+  .route-glow{ stroke:var(--accent); stroke-width:16; opacity:.2; filter:blur(3px); fill:none; stroke-linecap:round;
+    stroke-dasharray:1400; stroke-dashoffset:1400; animation: draw 1.9s .3s ease-out forwards; }
+  .route-line{ stroke:var(--accent); stroke-width:7; fill:none; stroke-linecap:round;
+    stroke-dasharray:1400; stroke-dashoffset:1400; animation: draw 1.9s .3s ease-out forwards; }
+  .route-line.core{ stroke:#F4B48A; stroke-width:2.5; }
+  @keyframes draw{ to{ stroke-dashoffset:0; } }
+
+  .pin-layer{ position:absolute; inset:0; z-index:4; }
+  .start-label{ position:absolute; top:79%; left:50%; margin:-15px 0 0 -15px; display:flex; align-items:center; gap:6px;
+    background:var(--paper); border-radius:20px; padding:5px 12px 5px 5px; box-shadow:var(--shadow); white-space:nowrap; }
+  .start-label .ring{ position:absolute; width:20px; height:20px; border-radius:50%; border:2px solid var(--accent);
+    animation: ripple 1.8s ease-out infinite; }
+  @keyframes ripple{ 0%{ transform:scale(.5); opacity:.7; } 100%{ transform:scale(1.8); opacity:0; } }
+  .start-label .puck{ width:20px; height:20px; border-radius:50%; background:var(--accent); border:3px solid #fff; position:relative; }
+  .start-label span{ font-size:11.5px; font-weight:700; }
+
+  .musa-walker{ position:absolute; width:44px; height:44px; margin:-38px 0 0 -22px; z-index:5;
+    border-radius:50%; background:var(--paper); box-shadow:var(--shadow); padding:4px;
+    animation: walkerIn .5s .7s cubic-bezier(.34,1.56,.64,1) both; }
+  .musa-walker img{ width:100%; height:100%; object-fit:cover; border-radius:50%; }
+  @keyframes walkerIn{ from{ opacity:0; transform:translateY(-10px) scale(.6);} to{ opacity:1; transform:translateY(0) scale(1);} }
+
+  .pin{ position:absolute; display:flex; align-items:center; gap:7px;
+    animation: pinDrop .5s cubic-bezier(.34,1.56,.64,1) both; cursor:pointer; }
+  @keyframes pinDrop{ from{opacity:0; transform:translateY(-14px) scale(.6);} to{opacity:1; transform:translateY(0) scale(1);} }
+  .pin .icon{ width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    flex-shrink:0; box-shadow:var(--shadow); border:2.5px solid var(--paper); }
+  .pin .icon svg{ width:15px; height:15px; stroke:#fff; }
+  .pin .card{ background:var(--paper); border-radius:12px; padding:6px 12px; box-shadow:var(--shadow); white-space:nowrap; line-height:1.25; }
+  .pin .card .name{ font-size:11px; font-weight:700; color:var(--ink); }
+  .pin .card .sub{ font-size:9.5px; color:var(--ink-soft); }
+  /* DESIGN.md's category roles: Food = accent, Trek/nature = trail, everything else = ink */
+  .pin.food .icon{ background:var(--accent); } .pin.cafe .icon{ background:var(--accent); }
+  .pin.viewpoint .icon{ background:var(--ink); } .pin.temple .icon{ background:var(--ink); }
+  .pin.rest .icon{ background:var(--ink); }
+  .pin.trek .icon{ background:var(--trail); } .pin.summit .icon{ background:var(--trail); }
+  .pin.rev{ flex-direction:row-reverse; }
+  .pin.rev .card{ text-align:right; }
+
+  /* ---------------- CHROME ---------------- */
+  .topbar{ position:relative; z-index:6; display:flex; align-items:center; gap:12px; padding:16px 20px 0; }
+  .icon-btn{ width:36px; height:36px; border-radius:11px; background:var(--paper); box-shadow:var(--shadow);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--ink); }
+  .route-title{ flex:1; text-align:center; }
+  .route-title .h{ font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:4px; }
+  .route-title .h svg{ width:11px; height:11px; }
+  .route-title .s{ font-size:11.5px; color:var(--ink-soft); margin-top:1px; }
+
+  .overlap-badge{ position:relative; z-index:6; margin:12px 20px 0; display:flex; align-items:center; gap:8px; }
+  .overlap-badge .pill{ flex:1; background:var(--paper); border-radius:16px; box-shadow:var(--shadow);
+    padding:9px 12px; display:flex; align-items:center; gap:8px;
+    animation: dropIn .5s cubic-bezier(.2,.9,.25,1.2) both; }
+  @keyframes dropIn{ from{opacity:0; transform:translateY(-10px);} to{opacity:1; transform:translateY(0);} }
+  .overlap-badge svg{ stroke:var(--trail); width:15px; height:15px; flex-shrink:0; }
+  .overlap-badge .txt{ font-size:11.5px; font-weight:700; color:var(--trail); flex-shrink:0; }
+  .avatar-stack{ display:flex; align-items:center; margin-left:auto; }
+  .avatar-stack span{ width:20px; height:20px; border-radius:50%; border:2px solid var(--paper); margin-left:-7px; }
+  .avatar-stack span:first-child{ margin-left:0; }
+  .avatar-stack .a1{ background:var(--accent); } .avatar-stack .a2{ background:var(--trail); }
+  .avatar-stack .a3{ background:var(--ink-soft); } .avatar-stack .a4{ background:#B08F6A; }
+  .avatar-stack .more{ font-size:10px; font-weight:700; color:var(--ink-soft); margin-left:5px; }
+
+  .side-controls{ position:absolute; z-index:6; right:16px; top:190px; display:flex; flex-direction:column; gap:10px; }
+  .side-controls .icon-btn{ width:40px; height:40px; border-radius:20px; }
+  .side-controls .icon-btn span{ font-size:11px; font-weight:700; }
+
+  .sheet{ position:absolute; z-index:8; left:0; right:0; bottom:0; background:var(--paper);
+    border-radius:26px 26px 0 0; box-shadow:0 -18px 40px -16px rgba(35,28,19,.18);
+    padding:16px 20px 24px; animation: sheetUp .6s .2s cubic-bezier(.2,.9,.2,1.05) both; }
+  @keyframes sheetUp{ from{transform:translateY(100%);} to{transform:translateY(0);} }
+  .sheet-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+  .sheet-top .h{ font-size:13.5px; font-weight:700; }
+  .sheet-top .link{ font-size:12px; font-weight:600; color:var(--accent); }
+  .cat-row{ display:flex; gap:10px; overflow-x:auto; }
+  .cat{ display:flex; flex-direction:column; align-items:center; gap:6px; flex-shrink:0; width:52px; }
+  .cat .circ{ width:44px; height:44px; border-radius:15px; display:flex; align-items:center; justify-content:center; }
+  .cat .circ svg{ width:19px; height:19px; }
+  .cat span{ font-size:10px; font-weight:600; color:var(--ink-soft); }
+  .cat.food .circ{ background:var(--accent-tint); } .cat.food svg{ stroke:var(--accent); }
+  .cat.cafe .circ{ background:var(--accent-tint); } .cat.cafe svg{ stroke:var(--accent); }
+  .cat.viewpoint .circ{ background:var(--ink-tint); } .cat.viewpoint svg{ stroke:var(--ink); }
+  .cat.temple .circ{ background:var(--ink-tint); } .cat.temple svg{ stroke:var(--ink); }
+  .cat.trek .circ{ background:var(--trail-tint); } .cat.trek svg{ stroke:var(--trail); }
+  .cat.more .circ{ background:var(--paper); border:1.5px dashed var(--line); } .cat.more svg{ stroke:var(--ink-soft); }
+
+  /* ---------------- SCREEN 2: POI DETAILS ---------------- */
+  .gallery{ height:260px; position:relative; overflow:hidden;
+    background: linear-gradient(160deg, #C9A876 0%, #8B6B47 55%, #5A4530 100%); }
+  .gallery-tex{ position:absolute; inset:0; opacity:.5;
+    background: repeating-linear-gradient(115deg, rgba(255,255,255,.06) 0 22px, transparent 22px 44px); }
+  .gallery-fade{ position:absolute; inset:0; top:auto; height:90px; background:linear-gradient(to bottom, transparent, var(--paper)); }
+  .top-icons{ position:absolute; left:0; right:0; top:0; display:flex; justify-content:space-between; padding:16px 18px; z-index:5; }
+  .top-icons .grp{ display:flex; gap:8px; }
+  .icon-btn.heart svg{ stroke:var(--ink); }
+
+  .poi-body{ padding:0 20px 24px; position:relative; margin-top:-30px; }
+  .cat-pill{ display:inline-flex; align-items:center; gap:5px; background:var(--accent-tint); color:var(--accent);
+    font-size:10.5px; font-weight:700; padding:6px 13px; border-radius:16px; }
+  .poi-title-row{ display:flex; align-items:center; gap:6px; margin-top:12px; }
+  .poi-title-row h1{ font-family:'Baloo 2',sans-serif; font-size:23px; font-weight:700; color:var(--ink); }
+  .verified{ width:18px; height:18px; border-radius:50%; background:var(--trail); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .verified svg{ width:10px; height:10px; stroke:#fff; stroke-width:3; }
+  .poi-location{ display:flex; align-items:center; gap:4px; margin-top:4px; color:var(--ink-soft); font-size:12px; }
+  .poi-location svg{ width:11px; height:11px; }
+  .poi-meta{ display:flex; align-items:center; gap:8px; margin-top:6px; color:var(--ink-soft); font-size:12.5px; }
+  .poi-meta .stars{ color:var(--accent); font-weight:700; }
+  .poi-meta .open{ color:var(--trail); font-weight:600; }
+  .poi-desc-row{ display:flex; align-items:flex-start; gap:12px; margin-top:12px; }
+  .poi-desc{ flex:1; font-size:13.5px; line-height:1.6; color:var(--ink-soft); }
+  .poi-desc-row img{ width:64px; flex-shrink:0; margin-top:-6px; }
+
+  .tag-row{ display:flex; gap:7px; margin-top:14px; flex-wrap:wrap; }
+  .tag{ font-size:10.5px; font-weight:600; padding:6px 11px; border-radius:16px; }
+  .tag.budget{ background:var(--trail-tint); color:var(--trail); } .tag.local{ background:var(--accent-tint); color:var(--accent); }
+  .tag.family{ background:var(--ink-tint); color:var(--ink); }
+
+  .stat-strip{ display:flex; margin-top:16px; border:1.5px solid var(--line); border-radius:14px; padding:12px 6px; }
+  .stat-strip .s{ flex:1; text-align:center; border-right:1px solid var(--line); }
+  .stat-strip .s:last-child{ border-right:none; }
+  .stat-strip svg{ width:15px; height:15px; stroke:var(--ink-soft); margin-bottom:3px; }
+  .stat-strip .v{ font-size:13px; font-weight:700; }
+  .stat-strip .l{ font-size:9px; color:var(--ink-soft); margin-top:2px; }
+
+  .section-lbl{ margin:18px 0 2px; }
+  .section-lbl-row{ display:flex; justify-content:space-between; align-items:center; }
+  .section-lbl .h{ font-size:13px; font-weight:700; }
+  .section-lbl .sub{ font-size:10.5px; color:var(--ink-soft); margin-top:1px; margin-bottom:10px; }
+  .section-lbl .link{ font-size:11.5px; font-weight:600; color:var(--accent); }
+  .photo-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+  .photo-grid div{ aspect-ratio:1; border-radius:10px; background:repeating-linear-gradient(135deg,var(--ink-tint) 0 8px,var(--urban) 8px 16px); position:relative; overflow:hidden; }
+  .photo-grid div.more::after{ content:"+32"; position:absolute; inset:0; background:rgba(35,28,19,.55); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; }
+
+  .cta-row{ position:absolute; left:20px; right:20px; bottom:20px; display:flex; gap:10px; }
+  .save-btn{ flex:1; background:var(--paper); border:1.5px solid var(--line); border-radius:16px; padding:14px;
+    display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:var(--shadow); font-weight:700; font-size:14px; color:var(--ink); }
+  .save-btn svg{ width:16px; height:16px; }
+  .memory-btn{ flex:1.6; background:var(--accent); color:#fff; border:none; border-radius:16px; font-weight:700; font-size:14px;
+    display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 12px 24px -10px rgba(226,78,29,.5); }
+</style>
+</head>
+<body>
+<!--
+THESIS: Musafir has a face -- Musa the mascot walks the road with you, turning route data into a companion, not a dashboard.
+OWN-WORLD: DESIGN.md's decided palette (paper/ink/accent-vermillion/trail-green) carried onto the Musa layout -- category color collapses from six hues to three roles (Food=accent, Trek/nature=trail, everything else=ink), same committed-strategy discipline as the original Live 3D Map direction. The 3D map itself stays real (tilted terrain, receding route, billboarded pins).
+STORY: visitor sees Musa already walking their route, sees a stack of real travelers' avatars who mapped this stretch before them, and reads the Smart Overlap badge as "you're not the first, and that's the point."
+FIRST VIEWPORT: route header, Smart Overlap badge with avatar stack, tilted terrain with Musa mid-route and category-colored place pins.
+FORM: direction pinned by the user's reference images, recolored onto the project's already-decided DESIGN.md palette per explicit instruction.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md.
+-->
+<div>
+  <div class="frame-label">Musa Brand — Route / Map</div>
+  <div class="device"><div class="screen">
+
+    <div class="map3d">
+      <div class="ground">
+        <div class="terrain"></div>
+        <div class="roads"></div>
+        <div class="tree" style="left:41%; bottom:34%;"></div>
+        <div class="tree" style="left:57%; bottom:38%;"></div>
+        <div class="tree" style="left:46%; bottom:44%;"></div>
+        <div class="tree" style="left:52%; bottom:48%;"></div>
+        <div class="tree" style="left:44%; bottom:54%;"></div>
+        <div class="tree" style="left:59%; bottom:58%;"></div>
+        <svg class="route-svg" viewBox="0 0 1400 1400" preserveAspectRatio="none">
+          <path class="route-glow" d="M700,1180 C640,1020 760,900 690,760 C620,630 720,520 660,400 C610,300 650,220 700,120"/>
+          <path class="route-line" d="M700,1180 C640,1020 760,900 690,760 C620,630 720,520 660,400 C610,300 650,220 700,120"/>
+          <path class="route-line core" d="M700,1180 C640,1020 760,900 690,760 C620,630 720,520 660,400 C610,300 650,220 700,120"/>
+        </svg>
+      </div>
+      <div class="horizon-fade"></div>
+
+      <div class="pin-layer">
+        <div class="start-label"><div class="ring"></div><div class="puck"></div><span>Delhi</span></div>
+        <div class="musa-walker" style="top:76%; left:44%;"><img src="assets/musa-mascot.png" alt=""></div>
+
+        <div class="pin summit" style="top:19%; left:50%; animation-delay:1.4s;">
+          <div class="icon"><svg viewBox="0 0 24 24"><path d="M4 20l6-11 4 7 3-5 5 9z"/></svg></div>
+          <div class="card"><div class="name">Triund</div><div class="sub">2,875 m</div></div>
+        </div>
+        <div class="pin viewpoint" style="top:28%; left:31%; animation-delay:1.2s;">
+          <div class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/></svg></div>
+          <div class="card"><div class="name">Snowline</div><div class="sub">Viewpoint</div></div>
+        </div>
+        <div class="pin food" style="top:38%; left:58%; animation-delay:1.0s;">
+          <div class="icon"><svg viewBox="0 0 24 24"><path d="M6 2v9a2 2 0 0 0 2 2v9M6 2c-1.5 1.5-1.5 5.5 0 9M18 2v20M14 2v8a4 4 0 0 0 4 4"/></svg></div>
+          <div class="card"><div class="name">Jungle Café</div><div class="sub">Food Stop</div></div>
+        </div>
+        <div class="pin trek rev" style="top:46%; right:36%; animation-delay:.95s;">
+          <div class="icon"><svg viewBox="0 0 24 24"><circle cx="13" cy="5" r="2"/><path d="M9 20l2-6-3-2 2-5 4 1 3 4-2 1 3 7"/></svg></div>
+          <div class="card"><div class="name">Bhagsu Waterfall</div><div class="sub">Trek Point</div></div>
+        </div>
+        <div class="pin rest" style="top:41%; left:33%; animation-delay:.9s;">
+          <div class="icon"><svg viewBox="0 0 24 24"><path d="M3 18v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6M3 18v2M21 18v2M3 12V8a2 2 0 0 1 2-2h4v4"/></svg></div>
+          <div class="card"><div class="name">Mcleod Ganj</div><div class="sub">Rest Stop</div></div>
+        </div>
+        <div class="pin viewpoint" style="top:53%; left:60%; animation-delay:.85s;">
+          <div class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/></svg></div>
+          <div class="card"><div class="name">Naddi Viewpoint</div><div class="sub">Scenic Spot</div></div>
+        </div>
+        <div class="pin cafe" style="top:60%; left:30%; animation-delay:.78s;">
+          <div class="icon"><svg viewBox="0 0 24 24"><path d="M10 3v3M6 3v3M4 8h13a3 3 0 0 1 0 6h-1M4 8v6a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4V8"/></svg></div>
+          <div class="card"><div class="name">Shiva Café</div><div class="sub">Cafe · 3.2 km</div></div>
+        </div>
+        <div class="pin temple rev" style="top:68%; right:36%; animation-delay:.7s;">
+          <div class="icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 6v12H4V9z"/></svg></div>
+          <div class="card"><div class="name">Kangra Devi Temple</div><div class="sub">Temple · 8.7 km</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="topbar">
+      <div class="icon-btn"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 6h16M4 12h16M4 18h16"/></svg></div>
+      <div class="route-title">
+        <div class="h brand-font">Delhi → Triund <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+        <div class="s">482 km · 12 h 45 min</div>
+      </div>
+      <div class="icon-btn"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+    </div>
+
+    <div class="overlap-badge">
+      <div class="pill">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-2 6-6 2 2-6z"/></svg>
+        <div class="txt">Smart Route Overlap</div>
+        <div class="avatar-stack"><span class="a1"></span><span class="a2"></span><span class="a3"></span><span class="a4"></span><span class="more">+124</span></div>
+      </div>
+      <div class="icon-btn"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M4 6h16M8 12h12M4 18h16" stroke-width="2.2"/></svg></div>
+    </div>
+
+    <div class="side-controls">
+      <div class="icon-btn"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M3 11l18-8-8 18-3-7-7-3z"/></svg></div>
+      <div class="icon-btn"><span>3D</span></div>
+      <div class="icon-btn"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 3l9 4.5-9 4.5-9-4.5zM3 12l9 4.5 9-4.5M3 16.5l9 4.5 9-4.5"/></svg></div>
+    </div>
+
+    <div class="sheet">
+      <div class="sheet-top"><div class="h">Places along the way</div><div class="link">View all</div></div>
+      <div class="cat-row">
+        <div class="cat food"><div class="circ"><svg viewBox="0 0 24 24"><path d="M6 2v9a2 2 0 0 0 2 2v9M6 2c-1.5 1.5-1.5 5.5 0 9M18 2v20M14 2v8a4 4 0 0 0 4 4"/></svg></div><span>Food</span></div>
+        <div class="cat cafe"><div class="circ"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4V3z"/></svg></div><span>Cafe</span></div>
+        <div class="cat viewpoint"><div class="circ"><svg viewBox="0 0 24 24"><path d="M4 20l6-11 4 7 3-5 5 9z"/></svg></div><span>Viewpoint</span></div>
+        <div class="cat temple"><div class="circ"><svg viewBox="0 0 24 24"><path d="M12 3l8 6v12H4V9z"/></svg></div><span>Temple</span></div>
+        <div class="cat trek"><div class="circ"><svg viewBox="0 0 24 24"><circle cx="13" cy="5" r="2"/><path d="M9 20l2-6-3-2 2-5 4 1 3 4-2 1 3 7"/></svg></div><span>Trek</span></div>
+        <div class="cat more"><div class="circ"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></div><span>More</span></div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<div>
+  <div class="frame-label">Musa Brand — POI Details</div>
+  <div class="device"><div class="screen" style="overflow-y:auto;">
+    <div class="gallery">
+      <div class="gallery-tex"></div>
+      <div class="top-icons">
+        <div class="icon-btn"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div class="grp">
+          <div class="icon-btn"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 3v12M8 7l4-4 4 4M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></div>
+          <div class="icon-btn heart"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg></div>
+        </div>
+      </div>
+      <div class="gallery-fade"></div>
+    </div>
+    <div class="poi-body">
+      <span class="cat-pill">Food Stop</span>
+      <div class="poi-title-row">
+        <h1>Jungle Café</h1>
+        <div class="verified"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></div>
+      </div>
+      <div class="poi-location"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.5 7-12a7 7 0 0 0-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>Dharamkot, Himachal Pradesh</div>
+      <div class="poi-meta">
+        <span class="stars">★ 4.6</span><span>(128 reviews)</span><span>·</span><span class="open">Open now</span>
+      </div>
+
+      <div class="poi-desc-row">
+        <p class="poi-desc">A cozy mountain café with amazing views, local food and warm vibes.</p>
+        <img src="assets/musa-photographer.png" alt="">
+      </div>
+
+      <div class="tag-row">
+        <span class="tag budget">Budget Friendly</span>
+        <span class="tag local">Local Favorite</span>
+        <span class="tag family">Good for Families</span>
+      </div>
+
+      <div class="stat-strip">
+        <div class="s"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg><div class="v">3.2 km</div><div class="l">from route</div></div>
+        <div class="s"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></svg><div class="v">10-15 min</div><div class="l">detour</div></div>
+        <div class="s"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M2 20c0-3.5 3-6 7-6s7 2.5 7 6M17 6a3 3 0 1 1 2 5.4M22 20c0-2.8-1.8-5-4.5-5.8"/></svg><div class="v">350+</div><div class="l">saved by travelers</div></div>
+      </div>
+
+      <div class="section-lbl">
+        <div class="section-lbl-row"><div class="h">Photos by travelers</div><div class="link">See all</div></div>
+        <div class="sub">Public photos from real travelers</div>
+      </div>
+      <div class="photo-grid"><div></div><div></div><div></div><div class="more"></div></div>
+    </div>
+    <div style="height:90px"></div>
+  </div>
+  <div class="cta-row">
+    <button class="save-btn"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4V3z"/></svg>Save</button>
+    <button class="memory-btn"><svg viewBox="0 0 24 24" width="17" height="17" stroke="#fff"><path d="M5 3v4M3 5h4M19 17v4M17 19h4M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/></svg>Add Memory</button>
+  </div>
+  </div>
+</div>
+</body>
+</html>

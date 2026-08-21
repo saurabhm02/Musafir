@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Musafir — Passport / Stamps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F1E7; --paper-dim:#EFE7D6;
+    --ink:#1B2A4A; --ink-soft:#4A5670;
+    --accent:#C23B22; --accent-ink:#FFF6EE;
+    --gold:#B08D57; --line:#D9CDB2;
+    --shadow: 0 12px 28px -14px rgba(27,42,74,.35);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:#111; font-family:'Space Grotesk',sans-serif; color:var(--ink);
+    display:flex; flex-wrap:wrap; gap:56px; justify-content:center; padding:64px 24px; }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  .frame-label{ text-align:center; color:#9a9186; font-family:'IBM Plex Mono',monospace; font-size:12px;
+    letter-spacing:.14em; text-transform:uppercase; margin-bottom:14px; }
+  .device{ width:390px; height:844px; background:var(--paper); border-radius:44px; overflow:hidden; position:relative;
+    box-shadow: 0 40px 80px -30px rgba(0,0,0,.7), 0 0 0 10px #0c0c0c; }
+  .screen{ position:absolute; inset:0; overflow:hidden; }
+  .security-bg{ position:absolute; inset:0;
+    background: repeating-linear-gradient(35deg, transparent 0 9px, rgba(27,42,74,.035) 9px 10px), var(--paper); }
+
+  .statusbar{ position:relative; z-index:5; display:flex; justify-content:space-between; align-items:center;
+    padding:18px 24px 0; font-family:'IBM Plex Mono',monospace; font-size:13px; }
+  .statusbar .brand{ letter-spacing:.16em; }
+
+  .boarding-pass{ position:relative; z-index:5; margin:16px 20px 0; background:var(--accent-ink);
+    border:1.5px solid var(--ink); border-radius:14px; display:flex; box-shadow:var(--shadow);
+    animation: slideIn .5s cubic-bezier(.2,.9,.25,1.1) both; overflow:hidden; }
+  @keyframes slideIn{ from{opacity:0; transform:translateY(-14px);} to{opacity:1; transform:translateY(0);} }
+  .bp-main{ flex:1; padding:12px 14px; }
+  .bp-field-lbl{ font-family:'IBM Plex Mono',monospace; font-size:8.5px; letter-spacing:.12em; color:var(--ink-soft); text-transform:uppercase; }
+  .bp-field-val{ font-weight:700; font-size:14.5px; margin-top:1px; }
+  .bp-row{ display:flex; gap:18px; }
+  .bp-stub{ width:56px; border-left:2px dashed var(--line); position:relative;
+    display:flex; align-items:center; justify-content:center; }
+  .bp-stub::before, .bp-stub::after{ content:""; position:absolute; left:-8px; width:16px; height:16px;
+    background:#111; border-radius:50%; }
+  .bp-stub::before{ top:-8px; } .bp-stub::after{ bottom:-8px; }
+  .go-btn{ width:34px; height:34px; border-radius:50%; background:var(--accent); display:flex; align-items:center;
+    justify-content:center; transform:rotate(-8deg); box-shadow:0 4px 10px -4px rgba(194,59,34,.6); }
+  .go-btn svg{ width:15px; height:15px; }
+
+  .filters{ position:absolute; z-index:6; top:118px; left:0; right:0; display:flex; gap:8px; padding:0 20px; overflow-x:auto; }
+  .chip{ font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600; letter-spacing:.03em; white-space:nowrap;
+    padding:6px 12px; border-radius:3px; border:1.5px solid var(--ink); background:var(--paper); color:var(--ink); }
+  .chip.active{ background:var(--ink); color:var(--paper); }
+
+  .map-area{ position:absolute; inset:0; top:100px; z-index:1; }
+  .route-path{ stroke:var(--accent); stroke-width:3.5; stroke-linecap:round; fill:none;
+    stroke-dasharray:9 7; stroke-dashoffset:900; stroke-dasharray:900; animation: draw 1.6s .3s ease-out forwards; }
+  @keyframes draw{ to{ stroke-dashoffset:0; } }
+
+  .stamp{ position:absolute; display:flex; flex-direction:column; align-items:center;
+    animation: thunk .5s cubic-bezier(.2,1.4,.4,1) both; cursor:pointer; }
+  @keyframes thunk{ from{opacity:0; transform:scale(1.7) rotate(var(--rot,0deg));} to{opacity:.92; transform:scale(1) rotate(var(--rot,0deg));} }
+  .stamp .ring{ width:44px; height:44px; border-radius:50%; border:2px solid currentColor; position:relative;
+    display:flex; align-items:center; justify-content:center; background:var(--paper); }
+  .stamp .ring::before{ content:""; position:absolute; inset:4px; border:1px dashed currentColor; border-radius:50%; opacity:.6; }
+  .stamp svg{ width:18px; height:18px; }
+  .stamp.food{ color:var(--accent); } .stamp.trek{ color:var(--gold); } .stamp.view{ color:var(--ink); }
+  .stamp .km{ margin-top:3px; font-family:'IBM Plex Mono',monospace; font-size:9px; font-weight:600; color:var(--ink); }
+
+  .sheet{ position:absolute; z-index:8; left:0; right:0; bottom:0; background:var(--paper);
+    clip-path: polygon(0 14px,2% 0,4% 14px,6% 0,8% 14px,10% 0,12% 14px,14% 0,16% 14px,18% 0,20% 14px,22% 0,24% 14px,26% 0,28% 14px,30% 0,32% 14px,34% 0,36% 14px,38% 0,40% 14px,42% 0,44% 14px,46% 0,48% 14px,50% 0,52% 14px,54% 0,56% 14px,58% 0,60% 14px,62% 0,64% 14px,66% 0,68% 14px,70% 0,72% 14px,74% 0,76% 14px,78% 0,80% 14px,82% 0,84% 14px,86% 0,88% 14px,90% 0,92% 14px,94% 0,96% 14px,98% 0,100% 14px,100% 100%,0 100%);
+    padding:22px 22px 26px; animation: sheetUp .6s .2s cubic-bezier(.2,.9,.2,1.05) both; }
+  @keyframes sheetUp{ from{transform:translateY(100%);} to{transform:translateY(0);} }
+  .sheet .visa{ display:inline-flex; align-items:center; gap:6px; border:1.5px solid var(--gold); color:var(--gold);
+    font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600; letter-spacing:.06em;
+    padding:4px 10px; border-radius:3px; margin-bottom:10px; }
+  .sheet h2{ font-size:20px; font-weight:700; }
+  .stat-row{ display:flex; gap:0; margin-top:14px; border-top:1px dashed var(--line); padding-top:12px; }
+  .stat{ flex:1; border-right:1px dashed var(--line); }
+  .stat:last-child{ border-right:none; }
+  .stat .val{ font-family:'IBM Plex Mono',monospace; font-size:16px; font-weight:600; }
+  .stat .lbl{ font-size:9.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.08em; margin-top:2px; }
+  .start-trip{ margin-top:16px; width:100%; background:var(--accent); color:var(--accent-ink); border:none;
+    border-radius:4px; padding:15px; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13px;
+    letter-spacing:.1em; text-transform:uppercase; display:flex; align-items:center; justify-content:center; gap:8px; }
+
+  /* screen 2 */
+  .gallery{ height:270px; position:relative; background:var(--paper-dim); overflow:hidden; }
+  .gallery .security-bg{ opacity:.6; }
+  .visa-sticker{ position:absolute; top:30px; left:30px; width:74px; height:74px; border:2px solid var(--accent);
+    border-radius:6px; background:rgba(255,246,238,.9); transform:rotate(-7deg); z-index:4;
+    display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace;
+    font-size:8px; color:var(--accent); font-weight:700; text-align:center; line-height:1.3; letter-spacing:.05em; }
+  .back-btn,.save-btn{ position:absolute; top:20px; width:38px; height:38px; border-radius:50%;
+    background:var(--accent-ink); border:1.5px solid var(--ink); display:flex; align-items:center; justify-content:center; z-index:5; }
+  .back-btn{ right:20px; } .save-btn{ left:20px; }
+  .poi-body{ padding:20px 22px 24px; }
+  .poi-tag-row{ display:flex; gap:8px; margin-bottom:12px; }
+  .tag{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; font-weight:700; padding:4px 10px;
+    border:1.5px solid currentColor; border-radius:20px; letter-spacing:.04em; transform:rotate(-2deg); }
+  .tag.budget{ color:var(--gold); } .tag.detour{ color:var(--accent); }
+  .poi-body h1{ font-size:24px; font-weight:700; }
+  .poi-meta{ display:flex; gap:10px; margin-top:6px; color:var(--ink-soft); font-size:13px; }
+  .poi-meta .rating{ color:var(--ink); font-weight:700; font-family:'IBM Plex Mono',monospace; }
+  .poi-desc{ margin-top:14px; font-size:14px; line-height:1.65; color:var(--ink-soft); }
+  .section-lbl{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.1em; color:var(--ink-soft); margin:22px 0 10px; display:flex; justify-content:space-between; }
+  .add-photo-mini{ color:var(--accent); font-weight:700; }
+  .photo-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .photo-grid div{ aspect-ratio:1; background:#fff; padding:5px 5px 12px; box-shadow:var(--shadow); transform:rotate(-2deg); }
+  .photo-grid div:nth-child(2n){ transform:rotate(2deg); }
+  .photo-grid div span{ display:block; width:100%; height:100%; background:repeating-linear-gradient(135deg,#E4D7BB 0 8px,#DCCBA5 8px 16px); }
+  svg{ stroke:currentColor; stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+</style>
+</head>
+<body>
+<!--
+THESIS: your trip is a document being stamped in real time — every stop is a visa, every route a boarding pass.
+OWN-WORLD: passport-ivory ground, deep navy ink, stamp-red accent (~35%), brass-gold as a second role; circular double-ring stamp badges, perforated boarding-pass dividers, torn-ticket sheet edge.
+STORY: visitor watches the route get "stamped" with discovered places as if their trip were being processed at a border desk.
+FIRST VIEWPORT: boarding-pass search strip with a tear-off stub, route stamping in below, circular stamp pins landing with a thunk.
+FORM: direction #2 of 4, manually authored (no roll API in this session).
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md.
+-->
+<div>
+  <div class="frame-label">Passport / Stamps — Home</div>
+  <div class="device"><div class="screen">
+    <div class="security-bg"></div>
+    <div class="statusbar"><span>9:41</span><span class="brand mono">MUSAFIR</span></div>
+    <div class="boarding-pass">
+      <div class="bp-main">
+        <div class="bp-row">
+          <div><div class="bp-field-lbl">From</div><div class="bp-field-val">Delhi</div></div>
+          <div><div class="bp-field-lbl">To</div><div class="bp-field-val">Triund</div></div>
+        </div>
+      </div>
+      <div class="bp-stub"><div class="go-btn"><svg viewBox="0 0 24 24" stroke="#FFF6EE"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div></div>
+    </div>
+    <div class="filters">
+      <div class="chip active">All</div><div class="chip">Food</div><div class="chip">Viewpoints</div>
+      <div class="chip">Temples</div><div class="chip">Treks</div>
+    </div>
+    <div class="map-area">
+      <svg viewBox="0 0 390 520" width="100%" height="100%" preserveAspectRatio="none">
+        <path class="route-path" d="M40,40 C120,90 60,180 130,230 C210,285 170,360 260,410 C300,435 320,460 340,500"/>
+      </svg>
+      <div class="stamp food" style="top:66px; left:94px; --rot:-6deg; animation-delay:.9s;">
+        <div class="ring"><svg viewBox="0 0 24 24"><path d="M4 8h12v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8zM16 9h2a2 2 0 0 1 0 4h-2M6 3v2M9 3v2M12 3v2"/></svg></div>
+        <div class="km">4 KM</div>
+      </div>
+      <div class="stamp view" style="top:170px; left:148px; --rot:5deg; animation-delay:1.1s;">
+        <div class="ring"><svg viewBox="0 0 24 24"><path d="M3 20l6-11 4 7 3-5 5 9z"/></svg></div>
+        <div class="km">22 KM</div>
+      </div>
+      <div class="stamp trek" style="top:328px; left:253px; --rot:-4deg; animation-delay:1.3s;">
+        <div class="ring"><svg viewBox="0 0 24 24"><path d="M4 20l5-9 3 4 2-3 6 8M2 20h20"/></svg></div>
+        <div class="km">58 KM</div>
+      </div>
+    </div>
+    <div class="sheet">
+      <div class="visa">✦ 12 stamps on this stretch</div>
+      <h2>Delhi → Triund</h2>
+      <div class="stat-row">
+        <div class="stat"><div class="val">468 km</div><div class="lbl">Distance</div></div>
+        <div class="stat"><div class="val">9h 40m</div><div class="lbl">Duration</div></div>
+        <div class="stat"><div class="val">2,850m</div><div class="lbl">Elevation</div></div>
+      </div>
+      <button class="start-trip"><svg viewBox="0 0 24 24" stroke="#FFF6EE" width="16" height="16"><path d="M5 3l14 9-14 9V3z"/></svg>Start Trip</button>
+    </div>
+  </div></div>
+</div>
+<div>
+  <div class="frame-label">Passport / Stamps — POI Details</div>
+  <div class="device"><div class="screen" style="overflow-y:auto;">
+    <div class="gallery">
+      <div class="security-bg"></div>
+      <div class="visa-sticker">ENTRY<br>VERIFIED</div>
+      <div class="save-btn"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 18l-6-6 6-6"/></svg></div>
+      <div class="back-btn"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 3h12v18l-6-4-6 4V3z"/></svg></div>
+    </div>
+    <div class="poi-body">
+      <div class="poi-tag-row"><span class="tag budget">BUDGET</span><span class="tag detour">DETOUR-WORTHY</span></div>
+      <h1>Murthal Dhaba Row</h1>
+      <div class="poi-meta"><span class="rating">4.6 ★</span><span>·</span><span>212 memories</span><span>·</span><span>0.8 km detour</span></div>
+      <p class="poi-desc">The legendary paratha stretch on NH44 — a dozen dhabas side by side, open through the night. Travelers on the Delhi–Chandigarh corridor stop here without fail.</p>
+      <div class="section-lbl">Community Memories <span class="add-photo-mini">+ Add Photo</span></div>
+      <div class="photo-grid"><div><span></span></div><div><span></span></div><div><span></span></div><div><span></span></div><div><span></span></div><div><span></span></div></div>
+    </div>
+  </div></div>
+</div>
+</body>
+</html>

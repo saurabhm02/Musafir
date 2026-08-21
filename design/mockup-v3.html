@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Musafir — Design v3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FAF8F5;            /* warm off-white page/app background */
+    --card:#FFFFFF;
+    --ink:#111111;           /* near-black text */
+    --ink-soft:#6B6660;
+    --ink-faint:#9C9690;
+    --border:#EFEAE2;        /* subtle border */
+    --border-strong:#E3DDD2;
+    --accent:#FF6800;        /* restrained orange accent */
+    --accent-tint:#FFEDE0;
+    --accent-ink:#FFFFFF;
+    --success:#1AAE64; --success-tint:#E7F7EE;
+    --warn:#F5A623; --warn-tint:#FEF6E6;
+    --error:#E44444; --error-tint:#FDEBEB;
+    --info:#3B82F6; --info-tint:#EAF2FE;
+    --map-land:#EFEAE0; --map-water:#CFE0DE; --map-road:#FFFFFF; --map-park:#DCE7D6;
+
+    --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:20px; --r-pill:999px;
+    --shadow: 0 1px 2px rgba(17,17,17,.04), 0 8px 20px -12px rgba(17,17,17,.08);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:#EFECE6; font-family:'Inter',sans-serif; color:var(--ink);
+    display:flex; flex-wrap:wrap; gap:40px; justify-content:center; align-items:flex-start; padding:48px 24px 140px; }
+  .frame-label{ text-align:center; color:#8A8578; font-size:11px; font-weight:600; letter-spacing:.08em;
+    text-transform:uppercase; margin-bottom:10px; }
+  .frame-group{ display:flex; flex-direction:column; align-items:center; }
+  .device{ width:360px; height:780px; background:var(--bg); border-radius:32px; overflow:hidden; position:relative;
+    box-shadow: 0 24px 60px -24px rgba(0,0,0,.4), 0 0 0 8px #111; }
+  .screen{ position:absolute; inset:0; overflow:hidden; }
+  .screen.scroll{ overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  svg{ stroke:currentColor; stroke-width:1.8; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+
+  /* ---------- shared chrome ---------- */
+  .statusbar{ display:flex; justify-content:space-between; align-items:center; padding:14px 20px 4px;
+    font-size:13px; font-weight:600; }
+  .topbar{ display:flex; align-items:center; justify-content:space-between; padding:6px 20px 14px; }
+  .topbar h1{ font-size:17px; font-weight:700; }
+  .icon-btn{ width:36px; height:36px; border-radius:var(--r-pill); background:var(--card); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .icon-btn svg{ width:17px; height:17px; }
+
+  .btn{ border:none; border-radius:var(--r-md); font-family:'Inter',sans-serif; font-weight:600; font-size:14.5px;
+    display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; }
+  .btn-primary{ background:var(--ink); color:#fff; padding:14px; }
+  .btn-accent{ background:var(--accent); color:#fff; padding:14px; }
+  .btn-ghost{ background:var(--card); color:var(--ink); border:1px solid var(--border-strong); padding:13px; }
+  .btn-block{ width:100%; }
+  .btn-sm{ padding:9px 14px; font-size:13px; border-radius:var(--r-sm); }
+
+  .pill{ font-size:10.5px; font-weight:700; padding:4px 10px; border-radius:var(--r-pill); letter-spacing:.02em; }
+  .pill-accent{ background:var(--accent-tint); color:var(--accent); }
+  .pill-dark{ background:var(--ink); color:#fff; }
+  .pill-success{ background:var(--success-tint); color:var(--success); }
+  .pill-outline{ background:var(--card); border:1px solid var(--border-strong); color:var(--ink-soft); }
+
+  .card{ background:var(--card); border:1px solid var(--border); border-radius:var(--r-lg); }
+  .section-title{ font-size:14px; font-weight:700; }
+  .section-link{ font-size:12.5px; font-weight:600; color:var(--ink-soft); }
+
+  .avatar{ border-radius:50%; background:linear-gradient(150deg,#E9C08B,#C98B52); border:1px solid var(--border); flex-shrink:0; }
+
+  /* photo-style placeholder blocks (no external images reachable in sandbox) */
+  .photo{ position:relative; overflow:hidden; background:#DDD; }
+  .photo.p-mtn{ background: linear-gradient(180deg,#B9D3E0 0%,#DCE7EA 32%, #8FA8AE 46%, #5E7268 62%, #38463C 100%); }
+  .photo.p-mtn::before{ content:''; position:absolute; inset:0;
+    background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,.18) 46%, transparent 52%),
+      radial-gradient(circle at 30% 18%, rgba(255,244,224,.5), transparent 30%); }
+  .photo.p-road{ background: linear-gradient(180deg,#D8C9A8 0%,#B9A377 30%,#6E7A5C 55%,#3E4A38 100%); }
+  .photo.p-road::before{ content:''; position:absolute; left:50%; bottom:0; width:22%; height:60%; margin-left:-11%;
+    background:linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,.1)); clip-path:polygon(40% 0,60% 0,100% 100%,0 100%); }
+  .photo.p-sunset{ background: linear-gradient(180deg,#F7C583 0%,#F0946B 34%,#B85C63 60%,#463349 100%); }
+  .photo.p-lake{ background: linear-gradient(180deg,#BFDDE6 0%,#8FB9C4 40%,#5C8A87 55%,#2E463D 100%); }
+  .photo.p-food{ background: linear-gradient(160deg,#E8B565 0%,#C9793B 55%,#7A4526 100%); }
+  .photo.p-forest{ background: linear-gradient(180deg,#CFE0C8 0%,#8FAE7C 40%,#4C6B45 70%,#26361F 100%); }
+  .photo.p-snow{ background: linear-gradient(180deg,#DCEAF2 0%,#F4F6F5 38%,#AEBFC2 55%,#5B6B6A 100%); }
+  .photo-fade-b{ position:absolute; inset:0; top:auto; height:60%; background:linear-gradient(to bottom, transparent, rgba(0,0,0,.55)); }
+  .photo-fade-t{ position:absolute; inset:0; bottom:auto; height:40%; background:linear-gradient(to top, transparent, rgba(0,0,0,.32)); }
+
+  /* ---------- bottom nav ---------- */
+  .navbar{ position:absolute; left:0; right:0; bottom:0; z-index:9; background:rgba(255,255,255,.98);
+    border-top:1px solid var(--border); display:flex; padding:9px 8px 20px; }
+  .nav-item{ flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--ink-faint); }
+  .nav-item.active{ color:var(--ink); }
+  .nav-item svg{ width:20px; height:20px; }
+  .nav-item span{ font-size:9.5px; font-weight:600; }
+  .fab{ width:46px; height:46px; border-radius:50%; background:var(--ink); display:flex; align-items:center; justify-content:center;
+    margin-top:-14px; box-shadow:0 8px 18px -6px rgba(17,17,17,.5); }
+  .fab svg{ width:20px; height:20px; stroke:#fff; }
+
+  /* ---------- onboarding ---------- */
+  .onb-photo{ height:62%; position:relative; }
+  .onb-skip{ position:absolute; top:16px; right:18px; font-size:12px; font-weight:600; color:#fff;
+    background:rgba(0,0,0,.28); padding:6px 12px; border-radius:var(--r-pill); }
+  .onb-body{ padding:20px 22px 22px; height:38%; display:flex; flex-direction:column; }
+  .onb-body h2{ font-size:21px; font-weight:800; letter-spacing:-.01em; }
+  .onb-body p{ margin-top:8px; font-size:13.5px; line-height:1.5; color:var(--ink-soft); }
+  .onb-dots{ display:flex; gap:5px; margin:16px 0; }
+  .onb-dots span{ width:6px; height:6px; border-radius:50%; background:var(--border-strong); }
+  .onb-dots span.active{ background:var(--ink); width:16px; border-radius:3px; }
+  .onb-foot{ margin-top:auto; display:flex; align-items:center; justify-content:space-between; }
+  .onb-next{ width:44px; height:44px; border-radius:50%; background:var(--ink); display:flex; align-items:center; justify-content:center; }
+  .onb-next svg{ width:18px; height:18px; stroke:#fff; }
+
+  /* ---------- auth ---------- */
+  .auth{ padding:24px 24px 24px; height:100%; display:flex; flex-direction:column; }
+  .auth-logo{ width:40px; height:40px; border-radius:12px; background:var(--ink); display:flex; align-items:center; justify-content:center; margin-bottom:22px; }
+  .auth-logo svg{ width:20px; height:20px; stroke:#fff; }
+  .auth h1{ font-size:23px; font-weight:800; letter-spacing:-.01em; }
+  .auth .sub{ margin-top:6px; font-size:13.5px; color:var(--ink-soft); }
+  .field{ margin-top:16px; }
+  .field label{ font-size:12px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:6px; }
+  .input{ border:1px solid var(--border-strong); border-radius:var(--r-md); padding:13px 14px; font-size:14px; color:var(--ink);
+    background:var(--card); display:flex; align-items:center; justify-content:space-between; }
+  .input.ph{ color:var(--ink-faint); }
+  .oauth{ border:1px solid var(--border-strong); border-radius:var(--r-md); padding:12px; display:flex; align-items:center;
+    gap:10px; font-size:13.5px; font-weight:600; background:var(--card); margin-top:10px; }
+  .auth-divider{ display:flex; align-items:center; gap:10px; margin:18px 0; color:var(--ink-faint); font-size:12px; }
+  .auth-divider .line{ flex:1; height:1px; background:var(--border); }
+  .auth-foot{ margin-top:auto; text-align:center; font-size:13px; color:var(--ink-soft); }
+  .auth-foot b{ color:var(--ink); }
+  .fp-link{ text-align:right; font-size:12px; font-weight:600; color:var(--accent); margin-top:8px; }
+  .verify-icon{ width:64px; height:64px; border-radius:50%; background:var(--accent-tint); display:flex; align-items:center; justify-content:center; margin:40px auto 20px; }
+  .verify-icon svg{ width:28px; height:28px; stroke:var(--accent); }
+
+  /* ---------- dashboard ---------- */
+  .dash-head{ display:flex; align-items:center; justify-content:space-between; padding:14px 20px 4px; }
+  .dash-hi{ font-size:12.5px; color:var(--ink-soft); font-weight:600; }
+  .dash-name{ font-size:21px; font-weight:800; margin-top:2px; }
+  .search-shell{ margin:14px 20px 0; }
+  .search-input{ background:var(--card); border:1px solid var(--border-strong); border-radius:var(--r-pill); padding:12px 16px;
+    display:flex; align-items:center; gap:10px; color:var(--ink-faint); font-size:13.5px; }
+  .body-pad{ padding:0 20px; }
+  .continue-card{ height:150px; border-radius:var(--r-xl); position:relative; overflow:hidden; margin-top:8px; }
+  .continue-card .cc-body{ position:absolute; left:0; right:0; bottom:0; padding:16px; color:#fff; }
+  .continue-card .cc-title{ font-size:15px; font-weight:700; }
+  .continue-card .cc-meta{ font-size:11.5px; opacity:.85; margin-top:3px; }
+  .continue-card .cc-go{ position:absolute; right:14px; bottom:14px; width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,.92);
+    display:flex; align-items:center; justify-content:center; }
+  .place-row{ display:flex; align-items:center; gap:12px; padding:10px 0; border-top:1px solid var(--border); }
+  .place-row:first-child{ border-top:none; }
+  .place-row .thumb{ width:52px; height:52px; border-radius:var(--r-md); flex-shrink:0; }
+  .place-row .pr-name{ font-size:13.5px; font-weight:700; }
+  .place-row .pr-meta{ font-size:11.5px; color:var(--ink-soft); margin-top:2px; }
+  .place-row .save-ic{ margin-left:auto; width:18px; height:18px; color:var(--ink-faint); }
+
+  /* ---------- search / route form ---------- */
+  .stops-card{ background:var(--card); border:1px solid var(--border); border-radius:var(--r-lg); padding:14px; margin:14px 20px 0; }
+  .stop-field{ display:flex; align-items:center; gap:10px; padding:9px 0; }
+  .stop-field .dot{ width:8px; height:8px; border-radius:50%; border:2px solid var(--ink-soft); flex-shrink:0; }
+  .stop-field .dot.end{ background:var(--accent); border-color:var(--accent); }
+  .stop-field .stop-label{ font-size:10px; font-weight:700; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.05em; }
+  .stop-field .stop-val{ font-size:14.5px; font-weight:600; margin-top:1px; }
+  .stop-divider{ height:1px; background:var(--border); margin-left:18px; }
+  .swap-btn{ position:absolute; right:8px; width:32px; height:32px; border-radius:50%; background:var(--bg); border:1px solid var(--border-strong);
+    display:flex; align-items:center; justify-content:center; }
+  .recent-item{ display:flex; align-items:center; gap:10px; padding:11px 0; border-top:1px solid var(--border); font-size:13.5px; font-weight:600; }
+  .recent-item:first-child{ border-top:none; }
+  .recent-item svg{ width:16px; height:16px; color:var(--ink-faint); }
+  .popular-card{ width:210px; height:120px; border-radius:var(--r-lg); position:relative; overflow:hidden; flex-shrink:0; }
+  .popular-card .pc-body{ position:absolute; left:0; right:0; bottom:0; padding:12px; color:#fff; }
+  .popular-card .pc-title{ font-size:13px; font-weight:700; }
+  .popular-card .pc-meta{ font-size:10.5px; opacity:.85; margin-top:2px; }
+  .hscroll{ display:flex; gap:10px; overflow-x:auto; }
+
+  /* ---------- flat map ---------- */
+  .flatmap{ position:absolute; inset:0; background:var(--map-land); overflow:hidden; }
+  .flatmap .water{ position:absolute; border-radius:40%; background:var(--map-water); opacity:.7; }
+  .flatmap .park{ position:absolute; border-radius:16px; background:var(--map-park); opacity:.8; }
+  .flatmap .road{ position:absolute; background:var(--map-road); box-shadow:0 0 0 1px #E4DFD3; }
+  .flatmap .roadline{ position:absolute; stroke:#fff; }
+  .route-path{ stroke:var(--accent); stroke-width:4.5; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+  .route-path-bg{ stroke:#fff; stroke-width:8; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+  .map-pin{ position:absolute; display:flex; flex-direction:column; align-items:center; }
+  .map-pin .mp-dot{ width:30px; height:30px; border-radius:50% 50% 50% 0; background:var(--ink); transform:rotate(-45deg);
+    display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow); border:2px solid #fff; }
+  .map-pin .mp-dot svg{ transform:rotate(45deg); width:14px; height:14px; stroke:#fff; }
+  .map-pin.accent .mp-dot{ background:var(--accent); }
+  .map-pin.origin .mp-dot{ background:#fff; border:3px solid var(--ink); }
+  .map-pin.origin .mp-dot svg{ display:none; }
+  .map-chip{ position:absolute; background:#fff; border:1px solid var(--border-strong); border-radius:var(--r-pill);
+    padding:5px 10px; font-size:11px; font-weight:700; box-shadow:var(--shadow); }
+  .map-zoom{ position:absolute; right:14px; display:flex; flex-direction:column; border-radius:var(--r-md); overflow:hidden;
+    box-shadow:var(--shadow); border:1px solid var(--border); }
+  .map-zoom button{ width:36px; height:36px; background:#fff; border:none; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:center; }
+  .map-zoom button:last-child{ border-bottom:none; }
+  .locate-btn{ position:absolute; width:36px; height:36px; border-radius:50%; background:#fff; box-shadow:var(--shadow);
+    border:1px solid var(--border); display:flex; align-items:center; justify-content:center; }
+
+  .route-topcard{ position:absolute; top:14px; left:16px; right:16px; background:#fff; border:1px solid var(--border);
+    border-radius:var(--r-lg); padding:12px 14px; box-shadow:var(--shadow); z-index:5; }
+  .route-topcard .rt-row{ display:flex; align-items:center; justify-content:space-between; }
+  .route-topcard .rt-stops{ font-size:14.5px; font-weight:700; display:flex; align-items:center; gap:8px; }
+  .route-topcard .rt-stats{ display:flex; gap:12px; margin-top:8px; font-size:11px; color:var(--ink-soft); font-weight:600; }
+  .filter-row{ position:absolute; z-index:5; left:16px; right:16px; display:flex; gap:8px; overflow-x:auto; }
+  .filter-chip{ font-size:12px; font-weight:600; white-space:nowrap; padding:8px 14px; border-radius:var(--r-pill);
+    background:#fff; border:1px solid var(--border-strong); color:var(--ink-soft); box-shadow:var(--shadow); }
+  .filter-chip.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
+
+  .places-sheet{ position:absolute; left:0; right:0; bottom:0; z-index:8; background:#fff; border-radius:var(--r-xl) var(--r-xl) 0 0;
+    box-shadow:0 -12px 30px -18px rgba(0,0,0,.25); padding:10px 20px 20px; border-top:1px solid var(--border); }
+  .sheet-handle{ width:34px; height:4px; background:var(--border-strong); border-radius:4px; margin:0 auto 12px; }
+  .sheet-title-row{ display:flex; align-items:center; justify-content:space-between; }
+  .sheet-title{ font-size:13.5px; font-weight:700; }
+  .sheet-title .muted{ color:var(--ink-soft); font-weight:500; }
+  .cat-grid-sm{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:12px; }
+  .cat-mini{ text-align:center; padding:10px 4px; border-radius:var(--r-md); border:1px solid var(--border); }
+  .cat-mini svg{ width:18px; height:18px; margin:0 auto 6px; display:block; color:var(--ink-soft); }
+  .cat-mini .cm-n{ font-size:15px; font-weight:800; }
+  .cat-mini .cm-l{ font-size:10px; color:var(--ink-soft); font-weight:600; margin-top:1px; }
+
+  /* ---------- place detail ---------- */
+  .pd-gallery{ height:260px; position:relative; }
+  .pd-topbtns{ position:absolute; top:16px; left:16px; right:16px; display:flex; justify-content:space-between; z-index:5; }
+  .pd-body{ padding:0 20px 24px; position:relative; margin-top:-16px; background:var(--bg); border-radius:var(--r-xl) var(--r-xl) 0 0; padding-top:18px; }
+  .pd-title-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .pd-title-row h1{ font-size:20px; font-weight:800; letter-spacing:-.01em; }
+  .pd-tags{ display:flex; gap:6px; margin-top:8px; }
+  .pd-meta{ display:flex; align-items:center; gap:8px; margin-top:8px; font-size:12.5px; color:var(--ink-soft); }
+  .pd-meta .rating{ color:var(--ink); font-weight:700; display:flex; align-items:center; gap:3px; }
+  .tabs{ display:flex; gap:20px; margin-top:18px; border-bottom:1px solid var(--border); }
+  .tab{ font-size:13px; font-weight:600; color:var(--ink-faint); padding-bottom:10px; border-bottom:2px solid transparent; }
+  .tab.active{ color:var(--ink); border-color:var(--ink); }
+  .pd-desc{ margin-top:14px; font-size:13.5px; line-height:1.6; color:var(--ink-soft); }
+  .why-card{ margin-top:16px; background:var(--accent-tint); border-radius:var(--r-lg); padding:14px; }
+  .why-card .wc-label{ font-size:10.5px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.05em; }
+  .why-card p{ font-size:13px; margin-top:6px; line-height:1.5; }
+  .pd-photo-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:12px; }
+  .pd-photo-grid .photo{ aspect-ratio:1; border-radius:var(--r-md); }
+  .cta-row{ display:flex; gap:10px; margin-top:20px; }
+  .cta-row .btn-ghost{ flex:0 0 52px; padding:13px; }
+
+  /* ---------- add place ---------- */
+  .form-head{ display:flex; align-items:center; gap:14px; padding:18px 20px 8px; }
+  .form-head h2{ font-size:16.5px; font-weight:700; }
+  .upload-zone{ border:1.5px dashed var(--border-strong); border-radius:var(--r-lg); padding:24px; text-align:center; background:var(--card); }
+  .upload-zone svg{ width:24px; height:24px; color:var(--ink-faint); margin-bottom:6px; }
+  .upload-zone .ut{ font-weight:600; font-size:13.5px; }
+  .upload-zone .us{ font-size:11.5px; color:var(--ink-faint); margin-top:3px; }
+  .cat-pick-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .cat-pick{ border:1px solid var(--border-strong); border-radius:var(--r-md); padding:12px 6px; text-align:center; font-size:11px; font-weight:600; color:var(--ink-soft); }
+  .cat-pick.active{ border-color:var(--ink); background:var(--ink); color:#fff; }
+  .cat-pick svg{ width:17px; height:17px; margin:0 auto 6px; display:block; }
+  .textarea{ border:1px solid var(--border-strong); border-radius:var(--r-md); padding:13px 14px; font-size:13.5px; height:80px; color:var(--ink-soft); background:var(--card); }
+  .tagchip-row{ display:flex; gap:7px; flex-wrap:wrap; }
+  .tagchip{ font-size:11.5px; font-weight:600; padding:7px 12px; border-radius:var(--r-pill); border:1px solid var(--border-strong); color:var(--ink-soft); }
+  .tagchip.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
+
+  /* ---------- trip tracking ---------- */
+  .tt-topcard{ position:absolute; top:14px; left:16px; z-index:5; background:#fff; border-radius:var(--r-pill); padding:8px 14px 8px 8px;
+    display:flex; align-items:center; gap:8px; box-shadow:var(--shadow); border:1px solid var(--border); }
+  .tt-live-dot{ width:8px; height:8px; border-radius:50%; background:var(--error); animation:blink 1.4s infinite; }
+  @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:.3;} }
+  .tt-bottomcard{ position:absolute; left:16px; right:16px; bottom:16px; z-index:5; background:#fff; border-radius:var(--r-xl);
+    padding:16px; box-shadow:var(--shadow); border:1px solid var(--border); }
+  .tt-stat-row{ display:flex; }
+  .tt-stat{ flex:1; text-align:center; }
+  .tt-stat .val{ font-size:17px; font-weight:800; }
+  .tt-stat .lbl{ font-size:10px; color:var(--ink-soft); font-weight:600; margin-top:2px; text-transform:uppercase; letter-spacing:.03em; }
+  .tt-divider{ width:1px; background:var(--border); }
+
+  /* ---------- trip story ---------- */
+  .story-strip{ display:flex; gap:5px; height:190px; padding:0 20px; margin-top:14px; }
+  .story-strip .photo{ flex:1; border-radius:var(--r-md); }
+  .story-strip .photo:first-child{ flex:1.6; }
+  .story-body{ padding:16px 20px 24px; }
+  .story-body h1{ font-size:21px; font-weight:800; letter-spacing:-.01em; }
+  .story-body .dates{ font-size:12.5px; color:var(--ink-soft); margin-top:4px; }
+  .story-stat-row{ display:flex; margin-top:16px; background:var(--card); border:1px solid var(--border); border-radius:var(--r-lg); padding:14px 0; }
+  .timeline-item{ display:flex; gap:12px; padding:12px 0; }
+  .timeline-item .tl-time{ font-size:11px; font-weight:700; color:var(--ink-faint); width:52px; flex-shrink:0; padding-top:2px; }
+  .timeline-item .tl-dot-col{ display:flex; flex-direction:column; align-items:center; }
+  .timeline-item .tl-dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); margin-top:5px; }
+  .timeline-item .tl-line{ width:1.5px; flex:1; background:var(--border-strong); margin-top:4px; }
+  .timeline-item .tl-body{ flex:1; padding-bottom:2px; }
+  .timeline-item .tl-name{ font-size:13.5px; font-weight:700; }
+
+  /* ---------- profile ---------- */
+  .profile-hero{ padding:18px 20px 0; text-align:center; }
+  .profile-avatar-lg{ width:76px; height:76px; margin:0 auto 12px; }
+  .profile-hero h2{ font-size:19px; font-weight:800; }
+  .profile-hero .handle{ font-size:12.5px; color:var(--ink-soft); margin-top:2px; }
+  .profile-badges{ display:flex; justify-content:center; gap:8px; margin-top:10px; }
+  .stat-strip{ display:flex; margin:18px 20px 0; background:var(--card); border:1px solid var(--border); border-radius:var(--r-lg); padding:14px 0; }
+  .stat-strip .st{ flex:1; text-align:center; }
+  .stat-strip .st .val{ font-size:16px; font-weight:800; }
+  .stat-strip .st .lbl{ font-size:10px; color:var(--ink-soft); font-weight:600; margin-top:2px; }
+  .stat-strip .sdiv{ width:1px; background:var(--border); }
+  .menu-list{ margin-top:10px; padding:0 20px; }
+  .menu-row{ display:flex; align-items:center; gap:12px; padding:13px 0; border-top:1px solid var(--border); }
+  .menu-row:first-child{ border-top:none; }
+  .menu-row .mr-ic{ width:34px; height:34px; border-radius:var(--r-md); background:var(--bg); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; }
+  .menu-row .mr-ic svg{ width:16px; height:16px; }
+  .menu-row .mr-t{ flex:1; font-size:13.5px; font-weight:600; }
+  .menu-row .chev{ width:15px; height:15px; color:var(--ink-faint); }
+
+  /* ---------- social ---------- */
+  .feed-card{ margin:0 20px 14px; }
+  .feed-head{ display:flex; align-items:center; gap:9px; padding:12px; }
+  .feed-head .fh-name{ font-size:13px; font-weight:700; }
+  .feed-head .fh-meta{ font-size:11px; color:var(--ink-soft); }
+  .feed-photo{ height:200px; }
+  .feed-actions{ display:flex; align-items:center; gap:14px; padding:10px 12px; }
+  .feed-actions svg{ width:19px; height:19px; }
+  .feed-caption{ padding:0 12px 12px; font-size:12.5px; line-height:1.5; }
+  .feed-caption b{ font-weight:700; }
+  .follow-row{ display:flex; align-items:center; gap:11px; padding:11px 20px; border-top:1px solid var(--border); }
+  .follow-row:first-child{ border-top:none; }
+  .follow-row .fr-name{ font-size:13.5px; font-weight:700; }
+  .follow-row .fr-meta{ font-size:11.5px; color:var(--ink-soft); }
+
+  /* ---------- achievements ---------- */
+  .ach-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; padding:0 20px; }
+  .ach-badge{ text-align:center; }
+  .ach-badge .ab-icon{ width:64px; height:64px; border-radius:50%; margin:0 auto 8px; display:flex; align-items:center; justify-content:center;
+    background:var(--accent-tint); border:1px solid var(--border); }
+  .ach-badge.locked .ab-icon{ background:var(--bg); opacity:.5; }
+  .ach-badge svg{ width:26px; height:26px; color:var(--accent); }
+  .ach-badge.locked svg{ color:var(--ink-faint); }
+  .ach-badge .ab-name{ font-size:11.5px; font-weight:700; }
+  .ach-badge .ab-sub{ font-size:10px; color:var(--ink-soft); margin-top:1px; }
+
+  /* ---------- settings ---------- */
+  .settings-group{ margin:0 20px 20px; }
+  .settings-group .sg-label{ font-size:11px; font-weight:700; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px; }
+  .settings-card{ background:var(--card); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; }
+  .settings-row{ display:flex; align-items:center; gap:12px; padding:13px 14px; border-top:1px solid var(--border); }
+  .settings-row:first-child{ border-top:none; }
+  .settings-row .sr-t{ flex:1; font-size:13.5px; font-weight:600; }
+  .toggle{ width:40px; height:24px; border-radius:var(--r-pill); background:var(--border-strong); position:relative; flex-shrink:0; }
+  .toggle.on{ background:var(--accent); }
+  .toggle::after{ content:''; position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:var(--shadow); }
+  .toggle.on::after{ left:18px; }
+
+  /* ---------- loading / empty / error ---------- */
+  .center-screen{ height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 32px; text-align:center; }
+  .skeleton{ background:linear-gradient(90deg, var(--border) 25%, var(--border-strong) 37%, var(--border) 63%); background-size:400% 100%;
+    animation: shimmer 1.4s ease infinite; border-radius:var(--r-md); }
+  @keyframes shimmer{ 0%{background-position:100% 50%;} 100%{background-position:0 50%;} }
+  .spinner{ width:34px; height:34px; border-radius:50%; border:3px solid var(--border-strong); border-top-color:var(--accent);
+    animation:spin 0.9s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .empty-icon{ width:72px; height:72px; border-radius:50%; background:var(--bg); border:1px solid var(--border); display:flex;
+    align-items:center; justify-content:center; margin-bottom:18px; }
+  .empty-icon svg{ width:30px; height:30px; color:var(--ink-faint); }
+  .center-screen h2{ font-size:17px; font-weight:700; }
+  .center-screen p{ margin-top:8px; font-size:13px; color:var(--ink-soft); line-height:1.5; }
+  .error-icon{ width:72px; height:72px; border-radius:50%; background:var(--error-tint); display:flex; align-items:center; justify-content:center; margin-bottom:18px; }
+  .error-icon svg{ width:30px; height:30px; color:var(--error); }
+
+  /* ---- design system panel ---- */
+  .ds-panel{ width:100%; max-width:1360px; background:var(--card); border:1px solid var(--border); border-radius:var(--r-xl); padding:32px 36px; margin-top:8px; }
+  .ds-title{ font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:16px; }
+  .ds-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:32px; }
+  .swatch{ display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:12px; font-weight:600; color:var(--ink-soft); }
+  .swatch .sw{ width:28px; height:28px; border-radius:8px; border:1px solid var(--border); flex-shrink:0; }
+  .type-row{ display:flex; justify-content:space-between; align-items:baseline; padding:6px 0; border-top:1px solid var(--border); font-size:12px; color:var(--ink-soft); }
+  .type-row:first-child{ border-top:none; }
+  .radius-row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .radius-demo{ width:40px; height:40px; background:var(--bg); border:1px solid var(--border-strong); display:flex; align-items:center; justify-content:center; font-size:9px; color:var(--ink-soft); font-weight:700; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+DIRECTION v3 — exact-match to user-supplied reference image.
+Replaces the dark-editorial / illustrated 3D-terrain v2 system entirely.
+Warm off-white background, near-black Inter type, single restrained
+orange accent (#FF6800), soft rounded cards with 1px borders, flat
+map treatment (no tilt), real-photography-style hero blocks (rendered
+as gradient placeholders — see note below), minimal 2px line icons,
+generous whitespace, bottom tab nav with center FAB for Add.
+NOTE ON PHOTOGRAPHY: this sandbox's network allowlist blocks external
+image CDNs (Unsplash etc.) so no real photo files could be fetched.
+Photo surfaces below are rendered as toned gradient blocks that read
+as photography at thumbnail/hero size — swap `.photo` divs for real
+<img> tags with licensed travel photography before shipping.
+============================================================ -->
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="ic-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 12l3.5-6-2 5.5-5.5 2z"/></symbol>
+</svg>
+
+<!-- ============ ONBOARDING 1 ============ -->
+<div class="frame-group">
+  <div class="frame-label">Onboarding 1/4</div>
+  <div class="device"><div class="screen">
+    <div class="onb-photo photo p-mtn">
+      <div class="photo-fade-b"></div>
+      <div class="onb-skip">Skip</div>
+      <div class="statusbar" style="position:relative; color:#fff; z-index:2;"><span>9:41</span><span></span></div>
+    </div>
+    <div class="onb-body">
+      <div class="onb-dots"><span class="active"></span><span></span><span></span><span></span></div>
+      <h2>Your journey matters</h2>
+      <p>Explore beautiful routes and hidden places curated by travelers like you.</p>
+      <div class="onb-foot">
+        <span style="font-size:12.5px; font-weight:600; color:var(--ink-soft);">1 of 4</span>
+        <div class="onb-next"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ ONBOARDING 2 ============ -->
+<div class="frame-group">
+  <div class="frame-label">Onboarding 2/4</div>
+  <div class="device"><div class="screen">
+    <div class="onb-photo photo p-road">
+      <div class="photo-fade-b"></div>
+      <div class="onb-skip">Skip</div>
+      <div class="statusbar" style="position:relative; color:#fff; z-index:2;"><span>9:41</span><span></span></div>
+    </div>
+    <div class="onb-body">
+      <div class="onb-dots"><span></span><span class="active"></span><span></span><span></span></div>
+      <h2>Places worth the detour</h2>
+      <p>Discover cafés, viewpoints, dhabas and treks along the road, not just at your destination.</p>
+      <div class="onb-foot">
+        <span style="font-size:12.5px; font-weight:600; color:var(--ink-soft);">2 of 4</span>
+        <div class="onb-next"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ ONBOARDING 3 ============ -->
+<div class="frame-group">
+  <div class="frame-label">Onboarding 3/4</div>
+  <div class="device"><div class="screen">
+    <div class="onb-photo" style="display:flex; gap:2px;">
+      <div class="photo p-sunset" style="flex:1.4; position:relative;">
+        <div class="photo-fade-b"></div>
+        <div class="onb-skip">Skip</div>
+        <div class="statusbar" style="position:relative; color:#fff; z-index:2;"><span>9:41</span><span></span></div>
+      </div>
+      <div class="photo p-lake" style="flex:1;"></div>
+    </div>
+    <div class="onb-body">
+      <div class="onb-dots"><span></span><span></span><span class="active"></span><span></span></div>
+      <h2>Real places. Real photos.</h2>
+      <p>See photos and memories from real travelers before you go.</p>
+      <div class="onb-foot">
+        <span style="font-size:12.5px; font-weight:600; color:var(--ink-soft);">3 of 4</span>
+        <div class="onb-next"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ ONBOARDING 4 (map style, final CTA) ============ -->
+<div class="frame-group">
+  <div class="frame-label">Onboarding 4/4</div>
+  <div class="device"><div class="screen">
+    <div class="onb-photo" style="background:var(--map-land);">
+      <div class="flatmap" style="position:absolute; inset:0;">
+        <div class="water" style="width:260px; height:260px; top:-80px; right:-100px;"></div>
+        <div class="road" style="width:100%; height:5px; top:40%; transform:rotate(-8deg);"></div>
+        <div class="road" style="width:5px; height:100%; left:35%; transform:rotate(12deg);"></div>
+        <svg style="position:absolute; inset:0;" viewBox="0 0 360 480" preserveAspectRatio="none">
+          <path class="route-path-bg" d="M60,440 C120,380 100,300 160,260 C230,215 210,140 280,70"/>
+          <path class="route-path" d="M60,440 C120,380 100,300 160,260 C230,215 210,140 280,70"/>
+        </svg>
+        <div class="map-pin origin" style="top:88%; left:16%;"><div class="mp-dot"></div></div>
+        <div class="map-pin accent" style="top:14%; left:76%;"><div class="mp-dot"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5z"/></svg></div></div>
+      </div>
+    </div>
+    <div class="onb-body">
+      <div class="onb-dots"><span></span><span></span><span></span><span class="active"></span></div>
+      <h2>Track. Remember. Relive.</h2>
+      <p>Track your trips, capture memories, and relive your stories anytime.</p>
+      <button class="btn btn-accent btn-block" style="margin-top:16px;">Let's get started</button>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ WELCOME ============ -->
+<div class="frame-group">
+  <div class="frame-label">Welcome</div>
+  <div class="device"><div class="screen scroll">
+    <div class="auth" style="justify-content:center;">
+      <div class="auth-logo" style="margin:0 auto 24px;"><svg viewBox="0 0 24 24"><use href="#ic-compass"/></svg></div>
+      <div style="text-align:center;">
+        <h1>Welcome to Musafir</h1>
+        <p class="sub">Travel more. Share more. Remember forever.</p>
+      </div>
+      <div style="margin-top:36px;">
+        <div class="oauth" style="margin-top:0;"><svg viewBox="0 0 24 24" width="17" height="17"><path d="M21.6 12.2c0-.7-.06-1.4-.18-2H12v3.8h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.3z"/><path d="M12 22c2.7 0 5-.9 6.6-2.5l-3.2-2.5c-.9.6-2 .9-3.4.9-2.6 0-4.8-1.7-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22z"/><path d="M6.4 13.8A6 6 0 0 1 6.1 12c0-.6.1-1.2.3-1.8V7.6H3.1A10 10 0 0 0 2 12c0 1.6.4 3.1 1.1 4.4z"/><path d="M12 5.9c1.5 0 2.8.5 3.8 1.5l2.8-2.8C16.9 2.9 14.6 2 12 2A10 10 0 0 0 3.1 7.6l3.3 2.6C7.2 7.7 9.4 5.9 12 5.9z"/></svg>Continue with Google</div>
+        <div class="oauth"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.52-3.23 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.3c1.35.07 2.29.74 3.08.8.94-.19 1.85-.87 3.28-.75 1.63.13 2.86.77 3.66 1.94-3.36 2.02-2.5 6.44.9 7.7-.68 1.79-1.53 3.55-2.92 3.29zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>Continue with Apple</div>
+        <div class="oauth"><svg viewBox="0 0 24 24" width="16" height="16"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Continue with Email</div>
+      </div>
+      <div class="auth-foot">Already have an account? <b>Log in</b></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ LOGIN ============ -->
+<div class="frame-group">
+  <div class="frame-label">Log in</div>
+  <div class="device"><div class="screen scroll">
+    <div class="auth">
+      <div class="auth-logo"><svg viewBox="0 0 24 24"><use href="#ic-compass"/></svg></div>
+      <h1>Log in</h1>
+      <p class="sub">Welcome back!</p>
+      <div class="field"><label>Email</label><div class="input ph">enter your email</div></div>
+      <div class="field"><label>Password</label><div class="input ph">enter your password<svg viewBox="0 0 24 24" width="16" height="16" stroke="var(--ink-faint)"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></div></div>
+      <div class="fp-link">Forgot password?</div>
+      <button class="btn btn-primary btn-block" style="margin-top:22px;">Log in</button>
+      <div class="auth-divider"><div class="line"></div><span>or</span><div class="line"></div></div>
+      <div class="auth-foot" style="margin-top:0;">Don't have an account? <b>Sign up</b></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ SIGN UP ============ -->
+<div class="frame-group">
+  <div class="frame-label">Sign up</div>
+  <div class="device"><div class="screen scroll">
+    <div class="auth">
+      <div class="auth-logo"><svg viewBox="0 0 24 24"><use href="#ic-compass"/></svg></div>
+      <h1>Sign up</h1>
+      <p class="sub">Create your account</p>
+      <div class="field"><label>Full name</label><div class="input ph">enter your name</div></div>
+      <div class="field"><label>Email</label><div class="input ph">enter your email</div></div>
+      <div class="field"><label>Password</label><div class="input ph">create a password</div></div>
+      <button class="btn btn-primary btn-block" style="margin-top:22px;">Sign up</button>
+      <div class="auth-foot">Already have an account? <b>Log in</b></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ VERIFY EMAIL ============ -->
+<div class="frame-group">
+  <div class="frame-label">Verify Email</div>
+  <div class="device"><div class="screen">
+    <div class="center-screen">
+      <div class="verify-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div>
+      <h2>Check your inbox</h2>
+      <p>We've sent a verification link to<br><b style="color:var(--ink);">aryansi1126@gmail.com</b>.<br>Please click the link to verify your account.</p>
+      <button class="btn btn-primary btn-block" style="margin-top:24px;">Open Mail App</button>
+      <div style="margin-top:14px; font-size:12.5px; color:var(--ink-soft); font-weight:600;">Resend email (00:45)</div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ DASHBOARD ============ -->
+<div class="frame-group">
+  <div class="frame-label">Dashboard</div>
+  <div class="device"><div class="screen scroll" style="padding-bottom:80px;">
+    <div class="statusbar"><span>9:41</span><span></span></div>
+    <div class="dash-head">
+      <div>
+        <div class="dash-hi">Good morning</div>
+        <div class="dash-name">Dissu 👋</div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <div class="icon-btn"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+        <div class="avatar" style="width:36px; height:36px;"></div>
+      </div>
+    </div>
+    <div class="search-shell">
+      <div class="search-input"><svg viewBox="0 0 24 24" width="16" height="16"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search a route or place</div>
+    </div>
+    <div class="body-pad" style="margin-top:20px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;"><span class="section-title">Continue your journey</span><span class="section-link">View all</span></div>
+      <div class="continue-card photo p-forest">
+        <div class="photo-fade-b"></div>
+        <div class="cc-body">
+          <div class="cc-title">Delhi → Triund</div>
+          <div class="cc-meta">468 km · 9h 40m · 12 places</div>
+        </div>
+        <div class="cc-go"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+      </div>
+    </div>
+    <div class="body-pad" style="margin-top:22px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;"><span class="section-title">Saved places</span><span class="section-link">View all</span></div>
+      <div style="margin-top:4px;">
+        <div class="place-row"><div class="thumb photo p-food"></div><div><div class="pr-name">Murthal Dhaba</div><div class="pr-meta">Budget · 4.7 · 8 min detour</div></div><svg class="save-ic" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M6 3h12v18l-6-4-6 4V3z"/></svg></div>
+        <div class="place-row"><div class="thumb photo p-sunset"></div><div><div class="pr-name">Sunset Point, Kasauli</div><div class="pr-meta">Viewpoint · 4.8 · 12 min detour</div></div><svg class="save-ic" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M6 3h12v18l-6-4-6 4V3z"/></svg></div>
+        <div class="place-row"><div class="thumb photo p-mtn"></div><div><div class="pr-name">Tirthan Valley</div><div class="pr-meta">Trek · 4.9 · 2.5 hr detour</div></div><svg class="save-ic" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M6 3h12v18l-6-4-6 4V3z"/></svg></div>
+      </div>
+    </div>
+  </div>
+  <div class="navbar">
+    <div class="nav-item active"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7M5 10v10h14V10"/></svg><span>Home</span></div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span>Explore</span></div>
+    <div class="fab"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4.5L18.5 21 12 16.5 5.5 21l2-7.5L2 9h7z"/></svg><span>Trips</span></div>
+    <div class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Profile</span></div>
+  </div>
+  </div>
+</div>
+
+<!-- ============ SEARCH ============ -->
+<div class="frame-group">
+  <div class="frame-label">Search</div>
+  <div class="device"><div class="screen scroll" style="padding-bottom:20px;">
+    <div class="statusbar"><span>9:41</span><span></span></div>
+    <div class="topbar"><h1>Where to?</h1><div class="icon-btn"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></div></div>
+    <div class="stops-card" style="position:relative;">
+      <div class="stop-field"><div class="dot"></div><div><div class="stop-label">From</div><div class="stop-val">Delhi</div></div></div>
+      <div class="stop-divider"></div>
+      <div class="stop-field"><div class="dot end"></div><div><div class="stop-label">To</div><div class="stop-val">Triund</div></div></div>
+      <div class="swap-btn" style="top:38%;"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M17 3l4 4-4 4M21 7H9M7 21l-4-4 4-4M3 17h12"/></svg></div>
+    </div>
+    <div class="body-pad" style="margin-top:22px;">
+      <span class="section-title">Recent searches</span>
+      <div style="margin-top:2px;">
+        <div class="recent-item"><svg viewBox="0 0 24 24"><path d="M12 8v4l3 3M21 12a9 9 0 1 1-9-9"/></svg>Delhi → Triund</div>
+        <div class="recent-item"><svg viewBox="0 0 24 24"><path d="M12 8v4l3 3M21 12a9 9 0 1 1-9-9"/></svg>Delhi → Manali</div>
+        <div class="recent-item"><svg viewBox="0 0 24 24"><path d="M12 8v4l3 3M21 12a9 9 0 1 1-9-9"/></svg>Mumbai → Goa</div>
+        <div class="recent-item"><svg viewBox="0 0 24 24"><path d="M12 8v4l3 3M21 12a9 9 0 1 1-9-9"/></svg>Bangalore → Coorg</div>
+      </div>
+    </div>
+    <div class="body-pad" style="margin-top:22px;">
+      <span class="section-title">Popular routes</span>
+      <div class="hscroll" style="margin-top:10px;">
+        <div class="popular-card photo p-snow"><div class="photo-fade-b"></div><div class="pc-body"><div class="pc-title">Manali</div><div class="pc-meta">473 km · 11h 20m</div></div></div>
+        <div class="popular-card photo p-lake"><div class="photo-fade-b"></div><div class="pc-body"><div class="pc-title">Rishikesh</div><div class="pc-meta">240 km · 6h 10m</div></div></div>
+        <div class="popular-card photo p-forest"><div class="photo-fade-b"></div><div class="pc-body"><div class="pc-title">Coorg</div><div class="pc-meta">265 km · 5h 40m</div></div></div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ ROUTE & PLACES (flat map) ============ -->
+<div class="frame-group">
+  <div class="frame-label">Route & Places</div>
+  <div class="device"><div class="screen">
+    <div class="flatmap">
+      <div class="water" style="width:220px; height:220px; top:-60px; left:-80px;"></div>
+      <div class="park" style="width:110px; height:150px; bottom:120px; right:-20px;"></div>
+      <div class="road" style="width:100%; height:4px; top:22%; transform:rotate(4deg);"></div>
+      <div class="road" style="width:100%; height:4px; top:55%; transform:rotate(-6deg);"></div>
+      <div class="road" style="width:4px; height:100%; left:60%; transform:rotate(10deg);"></div>
+      <svg style="position:absolute; inset:0;" viewBox="0 0 360 780" preserveAspectRatio="none">
+        <path class="route-path-bg" d="M90,700 C150,620 120,540 180,480 C240,420 210,340 260,260 C300,200 270,140 300,90"/>
+        <path class="route-path" d="M90,700 C150,620 120,540 180,480 C240,420 210,340 260,260 C300,200 270,140 300,90"/>
+      </svg>
+      <div class="map-pin origin" style="top:88%; left:22%;"><div class="mp-dot"></div></div>
+      <div class="map-pin" style="top:60%; left:44%;"><div class="mp-dot"><svg viewBox="0 0 24 24"><path d="M4 8h12v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8z"/></svg></div></div>
+      <div class="map-pin" style="top:40%; left:64%;"><div class="mp-dot"><svg viewBox="0 0 24 24"><path d="M3 20l6-11 4 7 3-5 5 9z"/></svg></div></div>
+      <div class="map-pin accent" style="top:11%; left:80%;"><div class="mp-dot"><svg viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4.5L18.5 21 12 16.5 5.5 21l2-7.5L2 9h7z"/></svg></div></div>
+
+      <div class="route-topcard">
+        <div class="rt-row">
+          <div class="rt-stops"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M15 18l-6-6 6-6"/></svg>Delhi → Triund</div>
+          <span class="pill pill-accent">12 known</span>
+        </div>
+        <div class="rt-stats"><span>9h 40m</span><span>·</span><span>468 km</span><span>·</span><span>2,850 m</span></div>
+      </div>
+      <div class="filter-row" style="top:112px;">
+        <div class="filter-chip active">All</div><div class="filter-chip">Food</div><div class="filter-chip">Viewpoints</div><div class="filter-chip">Temples</div>
+      </div>
+      <div class="map-zoom" style="bottom:210px;">
+        <button><svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 5v14M5 12h14"/></svg></button>
+        <button><svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 12h14"/></svg></button>
+      </div>
+      <div class="locate-btn" style="bottom:160px; right:14px;"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="5"/></svg></div>
+
+      <div class="places-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title-row"><span class="sheet-title">12 places on this route <span class="muted">· curated by community</span></span></div>
+        <div class="cat-grid-sm">
+          <div class="cat-mini"><svg viewBox="0 0 24 24"><path d="M4 8h12v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8z"/></svg><div class="cm-n">6</div><div class="cm-l">Food</div></div>
+          <div class="cat-mini"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 2v4M16 2v4"/></svg><div class="cm-n">3</div><div class="cm-l">Cafés</div></div>
+          <div class="cat-mini"><svg viewBox="0 0 24 24"><path d="M3 20l6-11 4 7 3-5 5 9z"/></svg><div class="cm-n">4</div><div class="cm-l">Views</div></div>
+          <div class="cat-mini"><svg viewBox="0 0 24 24"><path d="M12 2l7 4v6c0 5-3 8-7 10-4-2-7-5-7-10V6z"/></svg><div class="cm-n">2</div><div class="cm-l">Temples</div></div>
+        </div>
+        <button class="btn btn-primary btn-block" style="margin-top:14px;">Show all places</button>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ PLACE DETAILS ============ -->
+<div class="frame-group">
+  <div class="frame-label">Place Details</div>
+  <div class="device"><div class="screen scroll">
+    <div class="pd-gallery photo p-mtn">
+      <div class="photo-fade-t"></div>
+      <div class="pd-topbtns">
+        <div class="icon-btn" style="background:#fff;"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div style="display:flex; gap:8px;">
+          <div class="icon-btn" style="background:#fff;"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13"/></svg></div>
+          <div class="icon-btn" style="background:#fff;"><svg viewBox="0 0 24 24" width="16" height="16" fill="var(--accent)" stroke="var(--accent)"><path d="M6 3h12v18l-6-4-6 4V3z"/></svg></div>
+        </div>
+      </div>
+    </div>
+    <div class="pd-body">
+      <div class="pd-title-row">
+        <h1>Karnal View Point</h1>
+        <span class="pill pill-accent">Open 24 hrs</span>
+      </div>
+      <div class="pd-meta"><span class="rating"><svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="none"><path d="M12 2l3 7h7l-5.5 4.5L18.5 21 12 16.5 5.5 21l2-7.5L2 9h7z"/></svg>4.6</span><span>(326)</span><span>·</span><span>Viewpoint</span><span>·</span><span>0.8 km detour</span></div>
+      <div class="tabs">
+        <div class="tab active">Overview</div><div class="tab">Photos</div><div class="tab">Info</div><div class="tab">Reviews</div>
+      </div>
+      <p class="pd-desc">A beautiful viewpoint near Karnal with panoramic views of the Shivalik range. Perfect stop for a break and some amazing photos.</p>
+      <div class="why-card">
+        <div class="wc-label">Why travelers stop here</div>
+        <p>Scenic views, a great photo spot, and easy access right off the highway — most travelers on this route stop for 15–20 minutes.</p>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px;"><span class="section-title">Photos from travelers</span><span class="section-link">View all</span></div>
+      <div class="pd-photo-grid"><div class="photo p-mtn"></div><div class="photo p-snow"></div><div class="photo p-forest"></div><div class="photo p-sunset"></div><div class="photo p-lake"></div><div class="photo p-road"></div></div>
+      <div class="cta-row">
+        <button class="btn btn-ghost"><svg viewBox="0 0 24 24" width="17" height="17"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="5"/></svg></button>
+        <button class="btn btn-primary" style="flex:1;">Add to route</button>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ ADD PLACE ============ -->
+<div class="frame-group">
+  <div class="frame-label">Add Place</div>
+  <div class="device"><div class="screen scroll">
+    <div class="form-head">
+      <div class="icon-btn"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M15 18l-6-6 6-6"/></svg></div>
+      <h2>Add a place</h2>
+    </div>
+    <div class="body-pad" style="margin-top:6px; display:flex; flex-direction:column; gap:18px;">
+      <div class="upload-zone">
+        <svg viewBox="0 0 24 24"><path d="M4 16l4.5-6 3.5 4.5L15.5 9 20 16"/><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8" cy="9" r="1.5" fill="currentColor" stroke="none"/></svg>
+        <div class="ut">Add a photo</div>
+        <div class="us">Required · auto-compressed & geo-tagged</div>
+      </div>
+      <div class="field" style="margin-top:0;"><label>Name</label><div class="input">Kunzum Pass Viewpoint</div></div>
+      <div>
+        <label style="font-size:12px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:8px;">Category</label>
+        <div class="cat-pick-grid">
+          <div class="cat-pick"><svg viewBox="0 0 24 24"><path d="M4 8h12v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8z"/></svg>Food</div>
+          <div class="cat-pick active"><svg viewBox="0 0 24 24"><path d="M3 20l6-11 4 7 3-5 5 9z"/></svg>Viewpoint</div>
+          <div class="cat-pick"><svg viewBox="0 0 24 24"><path d="M4 20l5-9 3 4 2-3 6 8M2 20h20"/></svg>Trek</div>
+          <div class="cat-pick"><svg viewBox="0 0 24 24"><path d="M12 2l7 4v6c0 5-3 8-7 10-4-2-7-5-7-10V6z"/></svg>Temple</div>
+          <div class="cat-pick"><svg viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg>Rest Stop</div>
+          <div class="cat-pick"><svg viewBox="0 0 24 24"><path d="M12 3v18M4 8h16M4 16h16"/></svg>Historical</div>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:12px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:8px;">Description <span style="color:var(--ink-faint); font-weight:400;">optional</span></label>
+        <div class="textarea">The last viewpoint before the pass — 360° of snow peaks, best around sunrise.</div>
+      </div>
+      <div>
+        <label style="font-size:12px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:8px;">Tags</label>
+        <div class="tagchip-row">
+          <span class="tagchip active">Photo spot</span><span class="tagchip">Sunrise</span><span class="tagchip">Parking</span><span class="tagchip">Family-friendly</span>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:4px;">Save place</button>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ TRIP TRACKING ============ -->
+<div class="frame-group">
+  <div class="frame-label">Trip Tracking</div>
+  <div class="device"><div class="screen">
+    <div class="flatmap">
+      <div class="water" style="width:180px; height:180px; top:-40px; right:-60px;"></div>
+      <div class="road" style="width:100%; height:4px; top:40%; transform:rotate(-10deg);"></div>
+      <svg style="position:absolute; inset:0;" viewBox="0 0 360 780" preserveAspectRatio="none">
+        <path class="route-path-bg" d="M180,720 C200,600 160,500 200,400 C240,300 200,220 230,120"/>
+        <path class="route-path" d="M180,720 C200,600 160,500 200,400 C240,300 200,220 230,120"/>
+      </svg>
+      <div class="map-pin origin" style="top:20%; left:56%;"><div class="mp-dot"></div></div>
+      <div class="map-pin" style="top:44%; left:52%;"><div class="mp-dot"><svg viewBox="0 0 24 24"><path d="M4 8h12v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8z"/></svg></div></div>
+      <div class="map-pin accent" style="top:88%; left:46%;"><div class="mp-dot"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg></div></div>
+
+      <div class="tt-topcard"><div class="tt-live-dot"></div><span style="font-size:12.5px; font-weight:700;">Live tracking</span></div>
+      <div class="icon-btn" style="position:absolute; top:14px; right:16px; background:#fff;"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M6 6l12 12M18 6L6 18"/></svg></div>
+
+      <div class="tt-bottomcard">
+        <div class="tt-stat-row">
+          <div class="tt-stat"><div class="val">8h 24m</div><div class="lbl">Duration</div></div>
+          <div class="tt-divider"></div>
+          <div class="tt-stat"><div class="val">312 km</div><div class="lbl">Distance</div></div>
+          <div class="tt-divider"></div>
+          <div class="tt-stat"><div class="val">4</div><div class="lbl">Visited</div></div>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:14px;">
+          <button class="btn btn-ghost" style="flex:0 0 52px;"><svg viewBox="0 0 24 24" width="17" height="17"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1.5" fill="currentColor" stroke="none"/></svg></button>
+          <button class="btn btn-primary" style="flex:1;">End trip</button>
+        </div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ TRIP STORY ============ -->
+<div class="frame-group">
+  <div class="frame-label">Trip Story</div>
+  <div class="device"><div class="screen scroll">
+    <div class="topbar"><div class="icon-btn"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M15 18l-6-6 6-6"/></svg></div><div class="icon-btn"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13"/></svg></div></div>
+    <div class="story-strip">
+      <div class="photo p-mtn"></div>
+      <div style="display:flex; flex-direction:column; gap:5px; flex:1;">
+        <div class="photo p-forest" style="flex:1;"></div>
+        <div class="photo p-sunset" style="flex:1;"></div>
+      </div>
+    </div>
+    <div class="story-body">
+      <h1>Delhi → Triund</h1>
+      <div class="dates">26 May – 29 May 2025</div>
+      <div class="story-stat-row">
+        <div class="tt-stat"><div class="val">468 km</div><div class="lbl">Distance</div></div>
+        <div class="tt-divider"></div>
+        <div class="tt-stat"><div class="val">9h 40m</div><div class="lbl">Duration</div></div>
+        <div class="tt-divider"></div>
+        <div class="tt-stat"><div class="val">2,850 m</div><div class="lbl">Elevation</div></div>
+      </div>
+      <div style="margin-top:22px;"><span class="section-title">Journey highlights</span></div>
+      <div style="margin-top:4px;">
+        <div class="timeline-item"><div class="tl-time">7:42 AM</div><div class="tl-dot-col"><div class="tl-dot"></div><div class="tl-line"></div></div><div class="tl-body"><div class="tl-name">Murthal Dhaba</div></div></div>
+        <div class="timeline-item"><div class="tl-time">10:18 AM</div><div class="tl-dot-col"><div class="tl-dot"></div><div class="tl-line"></div></div><div class="tl-body"><div class="tl-name">Panipat View Point</div></div></div>
+        <div class="timeline-item"><div class="tl-time">1:04 PM</div><div class="tl-dot-col"><div class="tl-dot"></div><div class="tl-line"></div></div><div class="tl-body"><div class="tl-name">Chandigarh Lake</div></div></div>
+        <div class="timeline-item"><div class="tl-time">6:32 PM</div><div class="tl-dot-col"><div class="tl-dot"></div></div><div class="tl-body"><div class="tl-name">Triund Top</div></div></div>
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:16px;">Share story</button>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ MEMORIES ============ -->
+<div class="frame-group">
+  <div class="frame-label">Memories</div>
+  <div class="device"><div class="screen scroll">
+    <div class="statusbar"><span>9:41</span><span></span></div>
+    <div class="topbar"><h1>Memories</h1><div class="icon-btn"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div></div>
+    <div class="filter-row" style="position:relative; left:0; right:0; padding:0 20px;">
+      <div class="filter-chip active">All</div><div class="filter-chip">Public</div><div class="filter-chip">Private</div><div class="filter-chip">This trip</div>
+    </div>
+    <div class="pd-photo-grid" style="padding:0 20px; margin-top:16px; grid-template-columns:repeat(3,1fr);">
+      <div class="photo p-mtn" style="aspect-ratio:1;"></div>
+      <div class="photo p-food" style="aspect-ratio:1;"></div>
+      <div class="photo p-sunset" style="aspect-ratio:1;"></div>
+      <div class="photo p-lake" style="aspect-ratio:1;"></div>
+      <div class="photo p-forest" style="aspect-ratio:1;"></div>
+      <div class="photo p-snow" style="aspect-ratio:1;"></div>
+      <div class="photo p-road" style="aspect-ratio:1;"></div>
+      <div class="photo p-mtn" style="aspect-ratio:1;"></div>
+      <div class="photo p-sunset" style="aspect-ratio:1;"></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ PROFILE ============ -->
+<div class="frame-group">
+  <div class="frame-label">Profile</div>
+  <div class="device"><div class="screen scroll" style="padding-bottom:60px;">
+    <div class="statusbar"><span>9:41</span><span></span></div>
+    <div class="topbar"><span></span><div class="icon-btn"><svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></div></div>
+    <div class="profile-hero">
+      <div class="avatar profile-avatar-lg"></div>
+      <h2>Dissu Aryan</h2>
+      <div class="handle">@dissu.travels</div>
+      <div class="profile-badges"><span class="pill pill-dark">Explorer · Level 12</span><span class="pill pill-accent">12.4K pts</span></div>
+    </div>
+    <div class="stat-strip">
+      <div class="st"><div class="val">32</div><div class="lbl">Trips</div></div><div class="sdiv"></div>
+      <div class="st"><div class="val">218</div><div class="lbl">Places</div></div><div class="sdiv"></div>
+      <div class="st"><div class="val">1.2K</div><div class="lbl">Photos</div></div><div class="sdiv"></div>
+      <div class="st"><div class="val">96</div><div class="lbl">Followers</div></div>
+    </div>
+    <div class="menu-list">
+      <div class="menu-row"><div class="mr-ic"><svg viewBox="0 0 24 24"><path d="M20 7l-9 6-9-6M3 6h18v13H3z"/></svg></div><div class="mr-t">My Routes</div><svg class="chev" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></div>
+      <div class="menu-row"><div class="mr-ic"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4V3z"/></svg></div><div class="mr-t">My Places</div><svg class="chev" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></div>
+      <div class="menu-row"><div class="mr-ic"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="10" r="1.4" fill="currentColor" stroke="none"/></svg></div><div class="mr-t">My Trips</div><svg class="chev" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></div>
+      <div class="menu-row"><div class="mr-ic"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="10" r="1.4" fill="currentColor" stroke="none"/></svg></div><div class="mr-t">Memories</div><svg class="chev" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></div>
+      <div class="menu-row"><div class="mr-ic"><svg viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4.5L18.5 21 12 16.5 5.5 21l2-7.5L2 9h7z"/></svg></div><div class="mr-t">Achievements</div><svg class="chev" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></div>
+      <div class="menu-row"><div class="mr-ic"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M2 21c0-4 3-6 7-6M17 11l2 2 4-4"/></svg></div><div class="mr-t">Following</div><svg class="chev" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></div>
+      <div class="menu-row"><div class="mr-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9"/></svg></div><div class="mr-t">Settings</div><svg class="chev" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ SOCIAL / FEED ============ -->
+<div class="frame-group">
+  <div class="frame-label">Social Feed</div>
+  <div class="device"><div class="screen scroll" style="padding-bottom:70px;">
+    <div class="statusbar"><span>9:41</span><span></span></div>
+    <div class="topbar"><h1>Feed</h1><div class="icon-btn"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></div></div>
+    <div class="card feed-card">
+      <div class="feed-head"><div class="avatar" style="width:32px; height:32px;"></div><div><div class="fh-name">Ananya R.</div><div class="fh-meta">Delhi → Triund · 2h ago</div></div></div>
+      <div class="feed-photo photo p-mtn"></div>
+      <div class="feed-actions">
+        <svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l2.2-3.5A8.5 8.5 0 1 1 21 11.5z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13"/></svg>
+      </div>
+      <div class="feed-caption"><b>Ananya R.</b> Triund top at sunrise was worth every step 🏔️</div>
+    </div>
+    <div class="card feed-card">
+      <div class="feed-head"><div class="avatar" style="width:32px; height:32px;"></div><div><div class="fh-name">Rohan K.</div><div class="fh-meta">Mumbai → Goa · 5h ago</div></div></div>
+      <div class="feed-photo photo p-lake"></div>
+      <div class="feed-actions">
+        <svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l2.2-3.5A8.5 8.5 0 1 1 21 11.5z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13"/></svg>
+      </div>
+      <div class="feed-caption"><b>Rohan K.</b> Found this quiet backwater stop off NH66</div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ ACHIEVEMENTS ============ -->
+<div class="frame-group">
+  <div class="frame-label">Achievements</div>
+  <div class="device"><div class="screen scroll">
+    <div class="statusbar"><span>9:41</span><span></span></div>
+    <div class="topbar"><h1>Achievements</h1><span class="pill pill-accent">8 / 20</span></div>
+    <div class="ach-grid">
+      <div class="ach-badge"><div class="ab-icon"><svg viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4.5L18.5 21 12 16.5 5.5 21l2-7.5L2 9h7z"/></svg></div><div class="ab-name">First Trip</div><div class="ab-sub">Completed</div></div>
+      <div class="ach-badge"><div class="ab-icon"><svg viewBox="0 0 24 24"><path d="M4 8h12v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8z"/></svg></div><div class="ab-name">Foodie</div><div class="ab-sub">10 food stops</div></div>
+      <div class="ach-badge"><div class="ab-icon"><svg viewBox="0 0 24 24"><path d="M4 20l5-9 3 4 2-3 6 8M2 20h20"/></svg></div><div class="ab-name">Trailblazer</div><div class="ab-sub">5 treks</div></div>
+      <div class="ach-badge locked"><div class="ab-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div><div class="ab-name">Wanderer</div><div class="ab-sub">50 places</div></div>
+      <div class="ach-badge locked"><div class="ab-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div><div class="ab-name">Storyteller</div><div class="ab-sub">10 trip stories</div></div>
+      <div class="ach-badge locked"><div class="ab-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div><div class="ab-name">Influencer</div><div class="ab-sub">100 followers</div></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ SETTINGS ============ -->
+<div class="frame-group">
+  <div class="frame-label">Settings</div>
+  <div class="device"><div class="screen scroll">
+    <div class="statusbar"><span>9:41</span><span></span></div>
+    <div class="topbar"><h1>Settings</h1><span></span></div>
+    <div class="settings-group">
+      <div class="sg-label">Account</div>
+      <div class="settings-card">
+        <div class="settings-row"><div class="sr-t">Edit profile</div><svg class="chev" viewBox="0 0 24 24" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
+        <div class="settings-row"><div class="sr-t">Privacy</div><svg class="chev" viewBox="0 0 24 24" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
+        <div class="settings-row"><div class="sr-t">Change password</div><svg class="chev" viewBox="0 0 24 24" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="sg-label">Preferences</div>
+      <div class="settings-card">
+        <div class="settings-row"><div class="sr-t">Push notifications</div><div class="toggle on"></div></div>
+        <div class="settings-row"><div class="sr-t">Distance in km</div><div class="toggle on"></div></div>
+        <div class="settings-row"><div class="sr-t">Auto-upload memories</div><div class="toggle"></div></div>
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="sg-label">Support</div>
+      <div class="settings-card">
+        <div class="settings-row"><div class="sr-t">Help center</div><svg class="chev" viewBox="0 0 24 24" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
+        <div class="settings-row"><div class="sr-t">Terms & privacy policy</div><svg class="chev" viewBox="0 0 24 24" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
+        <div class="settings-row"><div class="sr-t" style="color:var(--error);">Log out</div></div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ LOADING STATE ============ -->
+<div class="frame-group">
+  <div class="frame-label">Loading State</div>
+  <div class="device"><div class="screen scroll" style="padding-bottom:20px;">
+    <div class="statusbar"><span>9:41</span><span></span></div>
+    <div class="dash-head"><div><div class="skeleton" style="width:70px; height:11px; margin-bottom:6px;"></div><div class="skeleton" style="width:130px; height:18px;"></div></div><div class="skeleton" style="width:36px; height:36px; border-radius:50%;"></div></div>
+    <div class="body-pad" style="margin-top:16px;"><div class="skeleton" style="height:150px; border-radius:var(--r-xl);"></div></div>
+    <div class="body-pad" style="margin-top:20px; display:flex; flex-direction:column; gap:12px;">
+      <div style="display:flex; gap:12px; align-items:center;"><div class="skeleton" style="width:52px; height:52px; border-radius:var(--r-md);"></div><div style="flex:1;"><div class="skeleton" style="width:60%; height:13px; margin-bottom:6px;"></div><div class="skeleton" style="width:40%; height:11px;"></div></div></div>
+      <div style="display:flex; gap:12px; align-items:center;"><div class="skeleton" style="width:52px; height:52px; border-radius:var(--r-md);"></div><div style="flex:1;"><div class="skeleton" style="width:55%; height:13px; margin-bottom:6px;"></div><div class="skeleton" style="width:35%; height:11px;"></div></div></div>
+      <div style="display:flex; gap:12px; align-items:center;"><div class="skeleton" style="width:52px; height:52px; border-radius:var(--r-md);"></div><div style="flex:1;"><div class="skeleton" style="width:65%; height:13px; margin-bottom:6px;"></div><div class="skeleton" style="width:45%; height:11px;"></div></div></div>
+    </div>
+    <div class="center-screen" style="position:absolute; inset:0; background:rgba(250,248,245,.7); padding-top:0;"><div class="spinner"></div></div>
+  </div></div>
+</div>
+
+<!-- ============ EMPTY STATE ============ -->
+<div class="frame-group">
+  <div class="frame-label">Empty State</div>
+  <div class="device"><div class="screen">
+    <div class="statusbar"><span>9:41</span><span></span></div>
+    <div class="topbar"><h1>Saved places</h1><span></span></div>
+    <div class="center-screen" style="height:80%;">
+      <div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4V3z"/></svg></div>
+      <h2>Nothing saved yet</h2>
+      <p>Places you bookmark along a route will show up here — start by searching a trip.</p>
+      <button class="btn btn-primary" style="margin-top:20px; padding:12px 24px;">Search a route</button>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ ERROR STATE ============ -->
+<div class="frame-group">
+  <div class="frame-label">Error State</div>
+  <div class="device"><div class="screen">
+    <div class="statusbar"><span>9:41</span><span></span></div>
+    <div class="center-screen" style="height:100%;">
+      <div class="error-icon"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div>
+      <h2>Couldn't load this route</h2>
+      <p>Check your connection and try again. Your saved trips are safe.</p>
+      <button class="btn btn-primary" style="margin-top:20px; padding:12px 24px;">Try again</button>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ DESIGN SYSTEM PANEL ============ -->
+<div class="ds-panel">
+  <div class="ds-title">Design System — musafir-v3</div>
+  <div class="ds-grid">
+    <div>
+      <div style="font-size:11px; font-weight:700; color:var(--ink-faint); margin-bottom:10px;">1. COLORS</div>
+      <div class="swatch"><div class="sw" style="background:#111111;"></div>#111111 · Ink</div>
+      <div class="swatch"><div class="sw" style="background:#FF6800;"></div>#FF6800 · Accent</div>
+      <div class="swatch"><div class="sw" style="background:#FAF8F5;"></div>#FAF8F5 · Background</div>
+      <div class="swatch"><div class="sw" style="background:#EFEAE2;"></div>#EFEAE2 · Border</div>
+      <div class="swatch"><div class="sw" style="background:#FFFFFF; border:1px solid #ddd;"></div>#FFFFFF · Card</div>
+      <div style="font-size:11px; font-weight:700; color:var(--ink-faint); margin:14px 0 8px;">Semantic</div>
+      <div class="swatch"><div class="sw" style="background:#1AAE64;"></div>#1AAE64 · Success</div>
+      <div class="swatch"><div class="sw" style="background:#F5A623;"></div>#F5A623 · Warning</div>
+      <div class="swatch"><div class="sw" style="background:#E44444;"></div>#E44444 · Error</div>
+    </div>
+    <div>
+      <div style="font-size:11px; font-weight:700; color:var(--ink-faint); margin-bottom:10px;">2. TYPOGRAPHY — Inter</div>
+      <div class="type-row"><span style="font-size:24px; font-weight:800;">Heading 1</span><span>32/40 Bold</span></div>
+      <div class="type-row"><span style="font-size:19px; font-weight:700;">Heading 2</span><span>24/32 Semibold</span></div>
+      <div class="type-row"><span style="font-size:16px; font-weight:700;">Heading 3</span><span>20/28 Semibold</span></div>
+      <div class="type-row"><span style="font-size:14px;">Body Large</span><span>16/24 Regular</span></div>
+      <div class="type-row"><span style="font-size:13px;">Body Medium</span><span>14/20 Regular</span></div>
+      <div class="type-row"><span style="font-size:12px;">Body Small</span><span>12/16 Regular</span></div>
+      <div class="type-row"><span style="font-size:11px;">Caption</span><span>11/14 Regular</span></div>
+    </div>
+    <div>
+      <div style="font-size:11px; font-weight:700; color:var(--ink-faint); margin-bottom:10px;">3. SPACING (4pt grid)</div>
+      <div class="radius-row">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:4px;"><div style="width:4px; height:16px; background:var(--accent);"></div><span style="font-size:10px; color:var(--ink-soft);">4</span></div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:4px;"><div style="width:8px; height:16px; background:var(--accent);"></div><span style="font-size:10px; color:var(--ink-soft);">8</span></div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:4px;"><div style="width:12px; height:16px; background:var(--accent);"></div><span style="font-size:10px; color:var(--ink-soft);">12</span></div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:4px;"><div style="width:16px; height:16px; background:var(--accent);"></div><span style="font-size:10px; color:var(--ink-soft);">16</span></div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:4px;"><div style="width:20px; height:16px; background:var(--accent);"></div><span style="font-size:10px; color:var(--ink-soft);">20</span></div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:4px;"><div style="width:24px; height:16px; background:var(--accent);"></div><span style="font-size:10px; color:var(--ink-soft);">24</span></div>
+      </div>
+      <div style="font-size:11px; font-weight:700; color:var(--ink-faint); margin:18px 0 10px;">4. RADIUS</div>
+      <div class="radius-row">
+        <div class="radius-demo" style="border-radius:8px;">Sm 8</div>
+        <div class="radius-demo" style="border-radius:12px;">Md 12</div>
+        <div class="radius-demo" style="border-radius:16px;">Lg 16</div>
+        <div class="radius-demo" style="border-radius:20px;">Xl 20</div>
+        <div class="radius-demo" style="border-radius:999px;">Pill</div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:11px; font-weight:700; color:var(--ink-faint); margin-bottom:10px;">5. BUTTONS</div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <button class="btn btn-primary btn-block">Primary</button>
+        <button class="btn btn-accent btn-block">Accent</button>
+        <button class="btn btn-ghost btn-block">Secondary</button>
+      </div>
+      <div style="font-size:11px; font-weight:700; color:var(--ink-faint); margin:18px 0 10px;">6. INPUT</div>
+      <div class="input ph">Search a route or place</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

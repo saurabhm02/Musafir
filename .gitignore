@@ -1,0 +1,76 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.bun/
+
+# Environment variables & Secrets
+.env
+.env.*
+.env*.local
+!.env.example
+*.pem
+*.key
+*.p8
+*.p12
+*.mobileprovision
+*.keystore
+!debug.keystore
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Documentation (ignored per project request)
+docs/
+docs
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Expo & React Native
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+.kotlin/
+.metro-health-check*
+*.jsbundle
+
+# Android Build & Local Configuration
+android/build/
+android/app/build/
+android/.gradle/
+android/.idea/
+android/.cxx/
+android/local.properties
+*.iml
+*.hprof
+
+# iOS Build Artifacts
+ios/build/
+ios/Pods/
+ios/*.xcworkspace
+ios/*.xcuserdata
+
+# TypeScript & Build Output
+*.tsbuildinfo
+server/generated/
+generated/
+
+# IDE & Editor Configurations
+.idea/
+.vscode/
+*.swp
+*.swo
+.claude/
