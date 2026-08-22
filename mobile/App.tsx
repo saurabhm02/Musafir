@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -8,11 +9,9 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { OnboardingScreen } from "./src/screens/OnboardingScreen";
 import { AuthScreen } from "./src/screens/AuthScreen";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
-import { SearchScreen } from "./src/screens/SearchScreen";
 import { TripTrackingScreen } from "./src/screens/TripTrackingScreen";
 import { PlaceDetailsScreen } from "./src/screens/PlaceDetailsScreen";
 import { HomeScreen } from "./src/screens/HomeScreen";
-import { POIDetailsScreen } from "./src/screens/POIDetailsScreen";
 import { AddPOIScreen } from "./src/screens/AddPOIScreen";
 import { supabase } from "./src/lib/supabase";
 import { colors } from "./src/theme";
@@ -42,25 +41,26 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRoute}>
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-          <Stack.Screen name="Auth" component={AuthScreen} />
-          <Stack.Screen name="Dashboard" component={DashboardScreen} />
-          <Stack.Screen name="Search" component={SearchScreen} />
-          <Stack.Screen name="TripTracking" component={TripTrackingScreen} />
-          <Stack.Screen name="PlaceDetails" component={PlaceDetailsScreen} />
-          <Stack.Screen name="Home" component={HomeScreen} />
-          <Stack.Screen name="POIDetails" component={POIDetailsScreen} />
-          <Stack.Screen name="AddPOI" component={AddPOIScreen} options={{ presentation: "modal" }} />
-        </Stack.Navigator>
-      </NavigationContainer>
-      <StatusBar style="dark" />
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={styles.flex}>
+      <SafeAreaProvider>
+        <NavigationContainer>
+          <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRoute}>
+            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+            <Stack.Screen name="Auth" component={AuthScreen} />
+            <Stack.Screen name="Dashboard" component={DashboardScreen} />
+            <Stack.Screen name="TripTracking" component={TripTrackingScreen} />
+            <Stack.Screen name="PlaceDetails" component={PlaceDetailsScreen} />
+            <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="AddPOI" component={AddPOIScreen} options={{ presentation: "modal" }} />
+          </Stack.Navigator>
+        </NavigationContainer>
+        <StatusBar style="dark" />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   loading: { flex: 1, backgroundColor: colors.paper },
 });

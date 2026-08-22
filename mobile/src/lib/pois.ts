@@ -10,15 +10,26 @@ export type Poi = {
   lat: number;
   lon: number;
   photo_url: string | null;
+  avg_rating: number | string | null;
+  total_ratings: number | null;
+  best_time: string | null;
 };
 
-// Input: nothing
-// Output: every POI in the database, with its cover photo if one exists
+// Input: an optional text query
+// Output: every POI in the database (or a name/description/category match), with its cover photo if one exists
 // ponytail: fetches all POIs and filters near the route in JS. Fine at
 // seed-data scale; move the "near this route" check into a PostGIS RPC
 // once POI count is too big to ship to the client whole.
-export async function fetchAllPois(): Promise<Poi[]> {
-  return api<Poi[]>("/pois");
+export async function fetchAllPois(q?: string): Promise<Poi[]> {
+  return api<Poi[]>(q ? `/pois?q=${encodeURIComponent(q)}` : "/pois");
+}
+
+export type NearbyPoi = Poi & { distance_km: number };
+
+// Input: a device coordinate + search radius in km
+// Output: POIs within that radius, nearest-first -- backs Explore's "Nearby" toggle
+export async function fetchNearbyPois(lat: number, lon: number, radiusKm: number): Promise<NearbyPoi[]> {
+  return api<NearbyPoi[]>(`/pois/nearby?lat=${lat}&lon=${lon}&radiusKm=${radiusKm}`);
 }
 
 function haversineKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {

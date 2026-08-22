@@ -31,6 +31,8 @@ model users {
   memories          memories[]
   pois              pois[]
   routes            routes[]
+  trips             trips[]
+  poi_status        poi_status[]
 }
 
 model routes {
@@ -91,9 +93,132 @@ model pois {
   updated_at    DateTime?     @default(now()) @db.Timestamptz(6)
   memories      memories[]
   poi_route     poi_route[]
+  trip_stops    trip_stops[]
+  poi_status    poi_status[]
+  poi_metadata  poi_metadata?
+  poi_details   poi_details?
+  poi_photos    poi_photos[]
+  poi_routes    poi_routes[]
   users         users?        @relation(fields: [created_by], references: [id])
 
   @@index([location], map: "pois_location_gix", type: Gist)
+}
+
+// One row per POI -- structured trek/trail facts (difficulty, distance,
+// elevation, etc). Row-level source/confidence tracks where this bundle of
+// fields came from; NULL means "not verified from any source yet," never a
+// guess (see enrich-treks.ts).
+model poi_metadata {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  poi_id          String    @unique @db.Uuid
+  difficulty      String?
+  distance_km     Decimal?  @db.Decimal
+  duration_hours  Decimal?  @db.Decimal
+  elevation_gain_m Decimal? @db.Decimal
+  max_elevation_m Decimal?  @db.Decimal
+  best_time       String?
+  starting_point  String?
+  ending_point    String?
+  state           String?
+  district        String?
+  source          String
+  confidence      String    @default("unverified")
+  updated_at      DateTime  @default(now()) @db.Timestamptz(6)
+  pois            pois      @relation(fields: [poi_id], references: [id], onDelete: Cascade)
+}
+
+// Zero or more real photos per POI, each traceable to where it came from.
+// Distinct from `memories`, which is user-uploaded content.
+model poi_photos {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  poi_id      String   @db.Uuid
+  source      String
+  source_id   String?
+  url         String
+  attribution String?
+  metadata    Json     @default("{}")
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  pois        pois     @relation(fields: [poi_id], references: [id], onDelete: Cascade)
+
+  @@unique([poi_id, source, source_id])
+}
+
+// Real trail/trek geometry (LineString), separate from the POI's own POINT
+// location. A POI can have more than one candidate route (e.g. different
+// sources or route variants); each is independently source-tracked.
+// One row per POI -- general facts not covered by `pois` itself or by the
+// trek-specific poi_metadata (city/country/opening_hours/website/entry_fee/
+// estimated visit duration). Applies to every category, not just treks.
+model poi_details {
+  id                                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  poi_id                            String    @unique @db.Uuid
+  city                              String?
+  country                           String?
+  opening_hours                     String?
+  website                           String?
+  entry_fee                        String?
+  estimated_visit_duration_minutes Int?
+  source                            String
+  confidence                        String    @default("unverified")
+  updated_at                        DateTime  @default(now()) @db.Timestamptz(6)
+  pois                              pois      @relation(fields: [poi_id], references: [id], onDelete: Cascade)
+}
+
+model poi_routes {
+  id               String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  poi_id           String                     @db.Uuid
+  route_type       String                     @default("hiking")
+  geometry         Unsupported("geography(linestring, 4326)")
+  distance_km      Decimal?                   @db.Decimal
+  elevation_gain_m Decimal?                   @db.Decimal
+  source           String
+  source_id        String?
+  confidence       String                     @default("unverified")
+  created_at       DateTime                   @default(now()) @db.Timestamptz(6)
+  pois             pois                       @relation(fields: [poi_id], references: [id], onDelete: Cascade)
+
+  @@unique([poi_id, source, source_id])
+  @@index([geometry], map: "poi_routes_geometry_gix", type: Gist)
+}
+
+model trips {
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String       @db.Uuid
+  title      String
+  destination String?
+  day_count  Int          @default(1)
+  status     String       @default("draft")
+  created_at DateTime?    @default(now()) @db.Timestamptz(6)
+  updated_at DateTime?    @default(now()) @db.Timestamptz(6)
+  users      users        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  trip_stops trip_stops[]
+}
+
+model trip_stops {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  trip_id    String    @db.Uuid
+  poi_id     String    @db.Uuid
+  day_number Int
+  time_label String?
+  note       String?
+  sort_order Int       @default(0)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  trips      trips     @relation(fields: [trip_id], references: [id], onDelete: Cascade)
+  pois       pois      @relation(fields: [poi_id], references: [id], onDelete: Cascade)
+
+  @@index([trip_id, day_number, sort_order], map: "trip_stops_trip_day_idx")
+}
+
+model poi_status {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  poi_id     String    @db.Uuid
+  status     String
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  pois       pois      @relation(fields: [poi_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, poi_id])
 }
 
 model poi_route {

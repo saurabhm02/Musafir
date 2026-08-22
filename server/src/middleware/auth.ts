@@ -15,8 +15,8 @@ export async function verifyUser(req: Request): Promise<string | null> {
 
 // input: a handler that needs a logged-in user
 // output: a route handler that 401s instead of calling it when there isn't one
-export function protectedRoute(handler: (req: Request, userId: string) => Promise<Response>) {
-  return async (req: Request) => {
+export function protectedRoute<T extends Request = Request>(handler: (req: T, userId: string) => Promise<Response>) {
+  return async (req: T) => {
     const userId = await verifyUser(req);
     if (!userId) return Response.json({ error: "unauthorized" }, { status: 401 });
     try {

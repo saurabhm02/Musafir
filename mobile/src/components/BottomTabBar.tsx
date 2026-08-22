@@ -1,8 +1,10 @@
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
+import { colors } from "../theme";
 
-export type TabType = "Home" | "Search" | "Trips" | "Profile";
+export type TabType = "Home" | "Explore" | "Musa" | "Trips" | "Profile";
 
 interface Props {
   activeTab: TabType;
@@ -10,8 +12,11 @@ interface Props {
   onCenterPress?: () => void;
 }
 
+const ACCENT_COLOR = colors.accent || "#E24E1B";
+const INACTIVE_COLOR = "#9CA3AF";
+
 function HomeIcon({ active }: { active: boolean }) {
-  const color = active ? "#EA6C1E" : "#9CA3AF";
+  const color = active ? ACCENT_COLOR : INACTIVE_COLOR;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
@@ -28,7 +33,7 @@ function HomeIcon({ active }: { active: boolean }) {
 }
 
 function SearchIcon({ active }: { active: boolean }) {
-  const color = active ? "#EA6C1E" : "#9CA3AF";
+  const color = active ? ACCENT_COLOR : INACTIVE_COLOR;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth={2.2} />
@@ -37,9 +42,9 @@ function SearchIcon({ active }: { active: boolean }) {
   );
 }
 
-function PawIconCenter() {
+function MusaPawIcon() {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Path
         d="M12 11.5C9.5 11.5 7.5 13.8 7.5 16.5C7.5 18.7 9.2 20.5 12 20.5C14.8 20.5 16.5 18.7 16.5 16.5C16.5 13.8 14.5 11.5 12 11.5Z"
         fill="#FFFFFF"
@@ -53,7 +58,7 @@ function PawIconCenter() {
 }
 
 function TripsIcon({ active }: { active: boolean }) {
-  const color = active ? "#EA6C1E" : "#9CA3AF";
+  const color = active ? ACCENT_COLOR : INACTIVE_COLOR;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="6" width="16" height="15" rx="3" stroke={color} strokeWidth={2} fill={active ? color + "18" : "none"} />
@@ -64,7 +69,7 @@ function TripsIcon({ active }: { active: boolean }) {
 }
 
 function ProfileIcon({ active }: { active: boolean }) {
-  const color = active ? "#EA6C1E" : "#9CA3AF";
+  const color = active ? ACCENT_COLOR : INACTIVE_COLOR;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
@@ -81,8 +86,27 @@ function ProfileIcon({ active }: { active: boolean }) {
 }
 
 export function BottomTabBar({ activeTab, onTabPress, onCenterPress }: Props) {
+  const insets = useSafeAreaInsets();
+  const bottomMargin = Math.max(12, insets.bottom > 0 ? insets.bottom : 12);
+
+  const handleMusaPress = () => {
+    if (onCenterPress) {
+      onCenterPress();
+    } else {
+      onTabPress("Musa");
+    }
+  };
+
   return (
-    <View style={styles.wrapper}>
+    <View
+      pointerEvents="box-none"
+      style={[
+        styles.floatingContainer,
+        {
+          bottom: bottomMargin,
+        },
+      ]}
+    >
       <View style={styles.bar}>
         {/* Home Tab */}
         <TouchableOpacity
@@ -96,27 +120,30 @@ export function BottomTabBar({ activeTab, onTabPress, onCenterPress }: Props) {
           </Text>
         </TouchableOpacity>
 
-        {/* Search Tab */}
+        {/* Explore Tab */}
         <TouchableOpacity
           style={styles.tabItem}
-          onPress={() => onTabPress("Search")}
+          onPress={() => onTabPress("Explore")}
           activeOpacity={0.75}
         >
-          <SearchIcon active={activeTab === "Search"} />
-          <Text style={[styles.tabLabel, activeTab === "Search" && styles.tabLabelActive]}>
-            Search
+          <SearchIcon active={activeTab === "Explore"} />
+          <Text style={[styles.tabLabel, activeTab === "Explore" && styles.tabLabelActive]}>
+            Explore
           </Text>
         </TouchableOpacity>
 
-        {/* Center Paw Button */}
-        <View style={styles.centerContainer}>
+        {/* Musa Center Action Button */}
+        <View style={styles.centerSlot}>
           <TouchableOpacity
             style={styles.centerBtn}
-            onPress={onCenterPress ?? (() => onTabPress("Trips"))}
+            onPress={handleMusaPress}
             activeOpacity={0.88}
           >
-            <PawIconCenter />
+            <MusaPawIcon />
           </TouchableOpacity>
+          <Text style={[styles.tabLabel, styles.musaLabel, activeTab === "Musa" && styles.tabLabelActive]}>
+            Musa
+          </Text>
         </View>
 
         {/* Trips Tab */}
@@ -148,24 +175,42 @@ export function BottomTabBar({ activeTab, onTabPress, onCenterPress }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
+  floatingContainer: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    zIndex: 100,
+    alignItems: "center",
     backgroundColor: "transparent",
   },
   bar: {
+    width: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
     backgroundColor: "#FFFFFF",
-    paddingTop: 8,
-    paddingBottom: 16,
+    borderRadius: 26,
+    height: 64,
     paddingHorizontal: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 8,
+    borderWidth: 1,
+    borderColor: "rgba(201, 185, 143, 0.25)",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000000",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 8,
+      },
+      default: {
+        shadowColor: "#000000",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+      },
+    }),
   },
   tabItem: {
     flex: 1,
@@ -180,26 +225,45 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
   },
   tabLabelActive: {
-    color: "#EA6C1E",
+    color: colors.accent || "#E24E1B",
     fontWeight: "700",
   },
-  centerContainer: {
+  centerSlot: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: -8,
+    position: "relative",
   },
   centerBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#EA6C1E",
+    position: "absolute",
+    top: -24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.accent || "#E24E1B",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#EA6C1E",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 5,
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.accent || "#E24E1B",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.38,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 9,
+      },
+      default: {
+        shadowColor: colors.accent || "#E24E1B",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.38,
+        shadowRadius: 10,
+      },
+    }),
+  },
+  musaLabel: {
+    marginTop: 26,
   },
 });

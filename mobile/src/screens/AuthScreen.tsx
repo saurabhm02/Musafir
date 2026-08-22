@@ -30,8 +30,8 @@ import { ensureSession, signIn, signUp } from "../lib/supabase";
 const { width } = Dimensions.get("window");
 
 const AUTH_MASCOTS = {
-  signup: "https://gomusafir.s3.us-east-1.amazonaws.com/mascot/fe-assets/musa-auth.png",
-  login: "https://gomusafir.s3.us-east-1.amazonaws.com/mascot/musa-auth-signup.png",
+  signup: "https://gomusafir.s3.us-east-1.amazonaws.com/mascot/musa-auth-signup.png?v=5",
+  login: "https://gomusafir.s3.us-east-1.amazonaws.com/mascot/musa-auth-login.png?v=5",
 };
 
 // SVG Icons
@@ -316,12 +316,12 @@ export function AuthScreen({ navigation }: Props) {
               </Text>
             </View>
 
-            {/* Large Mascot Illustration with Scenic Backdrop */}
+            {/* Mascot Illustration */}
             <View style={styles.heroRight}>
               <Animated.View
                 key={mode}
-                entering={FadeIn.duration(280)}
-                exiting={FadeOut.duration(200)}
+                entering={FadeIn.duration(260)}
+                exiting={FadeOut.duration(180)}
                 style={styles.mascotWrapper}
               >
                 <Image
@@ -475,10 +475,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === "android" ? 14 : 8,
+    paddingHorizontal: 22,
+    paddingTop: Platform.OS === "android" ? 12 : 6,
     paddingBottom: 4,
-    minHeight: 48,
+    minHeight: 44,
     zIndex: 10,
   },
   backBtn: {
@@ -502,29 +502,30 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 6,
-    marginBottom: 18,
-    minHeight: 175,
+    marginTop: 4,
+    marginBottom: 14,
+    minHeight: 185,
   },
   heroLeft: {
-    width: "48%",
-    paddingRight: 4,
+    width: "44%",
+    paddingRight: 2,
     justifyContent: "center",
+    zIndex: 2,
   },
   brandRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 5,
     marginBottom: 6,
   },
   brandTitle: {
-    fontSize: 27,
+    fontSize: 28,
     fontWeight: "800",
     color: "#18181B",
     letterSpacing: -0.6,
   },
   pawBadge: {
-    marginLeft: 2,
+    marginLeft: 1,
     marginTop: 1,
   },
   headline: {
@@ -542,10 +543,11 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   heroRight: {
-    width: "52%",
-    height: 180,
+    width: "56%",
+    height: 190,
     alignItems: "flex-end",
     justifyContent: "center",
+    overflow: "visible",
   },
   mascotWrapper: {
     width: "100%",
@@ -556,10 +558,10 @@ const styles = StyleSheet.create({
   mascotImage: {
     width: "100%",
     height: "100%",
-    transform: [{ scale: 1.08 }],
+    transform: [{ scale: 1.15 }],
   },
   formContainer: {
-    marginTop: 4,
+    marginTop: 2,
   },
   inputWrapper: {
     flexDirection: "row",
@@ -684,3 +686,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
+
+
+

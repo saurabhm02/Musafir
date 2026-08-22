@@ -5,6 +5,8 @@ import { poisRoutes } from "./routes/pois";
 import { memoriesRoutes } from "./routes/memories";
 import { routeSearchRoutes } from "./routes/routeSearch";
 import { uploadRoutes } from "./routes/upload";
+import { tripsRoutes } from "./routes/trips";
+import { poiStatusRoutes } from "./routes/poiStatus";
 
 Bun.serve({
   port: 3001,
@@ -16,6 +18,8 @@ Bun.serve({
     ...memoriesRoutes,
     ...routeSearchRoutes,
     ...uploadRoutes,
+    ...tripsRoutes,
+    ...poiStatusRoutes,
   },
 });
 

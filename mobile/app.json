@@ -32,6 +32,12 @@
         {
           "photosPermission": "Musafir needs access to your photos so you can add one when you save a new place."
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Musafir needs your location to show treks and places near you."
+        }
       ]
     ],
     "extra": {
