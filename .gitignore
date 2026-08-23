@@ -3,6 +3,9 @@ node_modules/
 .pnpm-store/
 .bun/
 
+# Enrichment script checkpoint/resume state (transient, not source)
+server/scripts/.checkpoints/
+
 # Environment variables & Secrets
 .env
 .env.*
