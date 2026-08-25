@@ -33,6 +33,7 @@ model users {
   routes            routes[]
   trips             trips[]
   poi_status        poi_status[]
+  user_achievements user_achievements[]
 }
 
 model routes {
@@ -293,3 +294,19 @@ model memories {
   @@index([trip_id], map: "memories_trip_id_idx")
   @@index([visibility, status, moderation_status], map: "memories_visibility_status_idx")
 }
+
+model user_achievements {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String    @db.Uuid
+  badge_key    String
+  unlocked_at  DateTime  @default(now()) @db.Timestamptz(6)
+  progress     Int       @default(0)
+  target_value Int       @default(1)
+  is_notified  Boolean   @default(false)
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  users        users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, badge_key], map: "user_achievements_user_badge_unique")
+  @@index([user_id], map: "user_achievements_user_id_idx")
+}
+
