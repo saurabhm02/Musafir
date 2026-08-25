@@ -400,7 +400,7 @@ export function Map3D({
           !navMode &&
           pois.map((poi) => (
             <Marker key={poi.id} lngLat={[poi.lon, poi.lat]}>
-              <MapPin poi={poi} onPress={() => onPoiPress(poi)} />
+              <MapPin poi={poi} detourLabel={(poi as any).detourLabel} onPress={() => onPoiPress(poi)} />
             </Marker>
           ))
         )}

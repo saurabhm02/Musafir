@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   Image,
   Keyboard,
@@ -21,6 +22,11 @@ import { Map3D } from "../components/Map3D";
 import { fetchNearbyPois, fetchSearchPois, fetchAllPois, type Poi } from "../lib/pois";
 import { fetchPoiStatusMap, setPoiStatus, type PoiStatus } from "../lib/poiStatus";
 import { getCurrentLocation, getCachedLocation, type Coords } from "../lib/location";
+import { fetchRouteCorridorRecommendations, type CorridorSearchResponse, type Route } from "../lib/routing";
+import { geocode } from "../lib/geocoding";
+import { fetchTrips, addTripStop, createTrip, type TripSummary } from "../lib/trips";
+import { AlongJourneySheet, recommendedPoiToPoi } from "../components/AlongJourneySheet";
+import { AddToTripBottomSheet } from "../components/AddToTripBottomSheet";
 import { categoryColor, categoryIconPath } from "../components/categoryIcons";
 import { BottomTabBar, type TabType } from "../components/BottomTabBar";
 import { colors } from "../theme";
@@ -28,6 +34,13 @@ import type { RootStackParamList } from "../navigation";
 
 const NEARBY_OPTIONS = [50, 100, 200, 500] as const;
 const ZOOM_FOR_RADIUS: Record<number, number> = { 50: 10.1, 100: 9.3, 200: 8.4, 500: 7.0 };
+
+const POPULAR_ROUTES = [
+  { label: "Nagpur → Delhi", origin: "Nagpur", dest: "Delhi" },
+  { label: "Mumbai → Pune", origin: "Mumbai", dest: "Pune" },
+  { label: "Delhi → Manali", origin: "Delhi", dest: "Manali" },
+  { label: "Bangalore → Goa", origin: "Bangalore", dest: "Goa" },
+] as const;
 
 function SearchIcon({ size = 18 }: { size?: number }) {
   return (
@@ -69,47 +82,10 @@ function BookmarkIcon({ size = 18, saved = false }: { size?: number; saved?: boo
   );
 }
 
-function PinSmallIcon({ size = 13 }: { size?: number }) {
+function RouteHighwayIcon({ size = 18, color = "#18181B" }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 21C16 17 20 13.4183 20 9C20 4.58172 16.4183 1 12 1C7.58172 1 4 4.58172 4 9C4 13.4183 8 17 12 21Z"
-        fill="#2563EB"
-      />
-      <Circle cx="12" cy="9" r="3" fill="#FFFFFF" />
-    </Svg>
-  );
-}
-
-function NavigationArrowSmallIcon({ size = 14 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 11L21 3L13 21L11 13L3 11Z" fill="#FFFFFF" stroke="#FFFFFF" strokeWidth={1.5} strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function RefreshIcon({ size = 14 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 4v5h5M20 20v-5h-5M4.5 9a8 8 0 0 1 13.9-3.4L20 9M19.5 15a8 8 0 0 1-13.9 3.4L4 15"
-        stroke="#2563EB"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function FilterSliderIcon({ size = 18 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 6h16M4 12h16M4 18h16" stroke="#18181B" strokeWidth={2} strokeLinecap="round" />
-      <Circle cx="8" cy="6" r="2.5" fill="#FFFFFF" stroke="#18181B" strokeWidth={2} />
-      <Circle cx="16" cy="12" r="2.5" fill="#FFFFFF" stroke="#18181B" strokeWidth={2} />
-      <Circle cx="10" cy="18" r="2.5" fill="#FFFFFF" stroke="#18181B" strokeWidth={2} />
+      <Path d="M4 19L8 5M20 19L16 5M12 7V9M12 13V15M12 19V21" stroke={color} strokeWidth={2} strokeLinecap="round" />
     </Svg>
   );
 }
@@ -126,6 +102,20 @@ function MapListToggleIcon({ size = 18, isList = false }: { size?: number; isLis
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke="#18181B" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function RefreshIcon({ size = 14 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 4v5h5M20 20v-5h-5M4.5 9a8 8 0 0 1 13.9-3.4L20 9M19.5 15a8 8 0 0 1-13.9 3.4L4 15"
+        stroke="#2563EB"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -170,13 +160,25 @@ export function HomeScreen({ navigation }: Props) {
   const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null);
   const [isListOnlyMode, setIsListOnlyMode] = useState(false);
 
-  const isSearchActive = isSearchFocused || query.trim().length > 0;
+  // Smart Route Corridor States
+  const [corridorData, setCorridorData] = useState<CorridorSearchResponse | null>(null);
+  const [corridorLoading, setCorridorLoading] = useState(false);
+  const [routeModeActive, setRouteModeActive] = useState(false);
+  const [originInput, setOriginInput] = useState("");
+  const [destInput, setDestInput] = useState("");
 
+  // Add to Trip Bottom Sheet States
+  const [addToTripOpen, setAddToTripOpen] = useState(false);
+  const [tripTargetPoi, setTripTargetPoi] = useState<Poi | null>(null);
+  const [trips, setTrips] = useState<TripSummary[]>([]);
+
+  const isSearchActive = isSearchFocused || query.trim().length > 0;
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       fetchPoiStatusMap().then(setStatusMap).catch(() => {});
+      fetchTrips().then(setTrips).catch(() => {});
     }, []),
   );
 
@@ -208,9 +210,74 @@ export function HomeScreen({ navigation }: Props) {
     };
   }, []);
 
+  // Handler: Execute Route Corridor Search
+  const executeCorridorSearch = useCallback(
+    async (originText: string, destText: string) => {
+      if (!destText.trim()) return;
+      setCorridorLoading(true);
+      Keyboard.dismiss();
+
+      try {
+        let originCoords: { lat: number; lon: number; name: string } | null = null;
+        const cleanOrigin = originText.trim().toLowerCase();
+
+        // 1. Resolve Origin
+        if (!cleanOrigin || cleanOrigin === "my location" || cleanOrigin === "current location") {
+          const loc = deviceLocation ?? (await getCurrentLocation()) ?? (await getCachedLocation());
+          if (loc) {
+            originCoords = { lat: loc.lat, lon: loc.lon, name: "Current Location" };
+          }
+        }
+
+        if (!originCoords && originText.trim()) {
+          const origPlace = await geocode(originText.trim());
+          if (origPlace) {
+            originCoords = { lat: origPlace.lat, lon: origPlace.lon, name: originText.trim() };
+          }
+        }
+
+        if (!originCoords) {
+          Alert.alert("Location Required", "Could not resolve origin location. Please specify a city or enable GPS.");
+          setCorridorLoading(false);
+          return;
+        }
+
+        // 2. Resolve Destination
+        const destPlace = await geocode(destText.trim());
+        if (!destPlace) {
+          Alert.alert("Destination Not Found", `Could not find "${destText.trim()}". Please try a city or landmark.`);
+          setCorridorLoading(false);
+          return;
+        }
+
+        const destCoords = { lat: destPlace.lat, lon: destPlace.lon, name: destText.trim() };
+
+        // 3. Call Existing Smart Route Overlap & Detour API
+        const result = await fetchRouteCorridorRecommendations({
+          origin: originCoords,
+          destination: destCoords,
+          maxDetourMinutes: 45,
+        });
+
+        setCorridorData(result);
+        setRouteModeActive(true);
+      } catch (err: any) {
+        console.warn("Corridor search failed:", err);
+        Alert.alert(
+          "Route Search Notice",
+          "Could not compute corridor stops at this time. Showing nearby places instead.",
+        );
+      } finally {
+        setCorridorLoading(false);
+      }
+    },
+    [deviceLocation],
+  );
+
   // Main Data Fetching Effect: Handles both on-demand nearby & debounced search
   useEffect(() => {
-    // Cancel any in-flight request
+    if (corridorData || routeModeActive) return;
+
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -218,6 +285,15 @@ export function HomeScreen({ navigation }: Props) {
     abortControllerRef.current = controller;
 
     const cleanQ = query.trim();
+
+    // Check if query is formatted as a route (e.g. "Nagpur to Delhi" or "Mumbai -> Pune")
+    const routeMatch = cleanQ.match(/^(.+?)\s*(?:to|->|→)\s*(.+)$/i);
+    if (routeMatch && routeMatch[1] && routeMatch[2]) {
+      const timer = setTimeout(() => {
+        executeCorridorSearch(routeMatch[1]!.trim(), routeMatch[2]!.trim());
+      }, 500);
+      return () => clearTimeout(timer);
+    }
 
     // 1. Text Search Mode (Debounced by 300ms across India)
     if (cleanQ.length > 0) {
@@ -263,7 +339,6 @@ export function HomeScreen({ navigation }: Props) {
             setPois(results);
           }
         } else {
-          // If location not yet resolved, fetch top curated places
           const results = await fetchAllPois();
           if (!controller.signal.aborted) {
             setPois(results);
@@ -285,7 +360,7 @@ export function HomeScreen({ navigation }: Props) {
     return () => {
       controller.abort();
     };
-  }, [query, selectedCategory, radiusKm, deviceLocation]);
+  }, [query, selectedCategory, radiusKm, deviceLocation, corridorData, routeModeActive, executeCorridorSearch]);
 
   const handleTabPress = (tab: TabType) => {
     if (tab === "Home") navigation.navigate("Dashboard");
@@ -305,6 +380,55 @@ export function HomeScreen({ navigation }: Props) {
     return deviceLocation ? haversineKm(deviceLocation, poi) : null;
   };
 
+  const clearRouteCorridor = () => {
+    setCorridorData(null);
+    setRouteModeActive(false);
+    setOriginInput("");
+    setDestInput("");
+    setQuery("");
+    setSelectedPoi(null);
+  };
+
+  // Convert corridor recommendations into POIs with detour tags for map markers
+  const corridorMapPois = useMemo(() => {
+    if (!corridorData) return [];
+    return corridorData.recommendations.map((r) => {
+      const p = recommendedPoiToPoi(r);
+      (p as any).detourLabel = `+${r.detourDurationMin}m`;
+      return p;
+    });
+  }, [corridorData]);
+
+  // Construct Route object for Map3D
+  const corridorRoute: Route | null = useMemo(() => {
+    if (!corridorData) return null;
+    return {
+      coordinates: corridorData.route.coordinates,
+      distanceKm: corridorData.route.distanceKm,
+      durationMin: corridorData.route.durationMin,
+      mode: "driving",
+    };
+  }, [corridorData]);
+
+  // Trip Bottom Sheet handlers
+  const handleOpenAddToTrip = (poi: Poi) => {
+    setTripTargetPoi(poi);
+    setAddToTripOpen(true);
+  };
+
+  const handleAddToTripDay = async (trip: TripSummary, dayNumber: number) => {
+    if (!tripTargetPoi) return;
+    await addTripStop(trip.id, { poiId: tripTargetPoi.id, dayNumber });
+    Alert.alert("Added to trip", `${tripTargetPoi.name} added to Day ${dayNumber} of "${trip.title}".`);
+  };
+
+  const handleCreateNewTrip = async (title: string, destination?: string, dayCount?: number) => {
+    if (!tripTargetPoi) return;
+    const id = await createTrip({ title, destination, dayCount });
+    await addTripStop(id, { poiId: tripTargetPoi.id, dayNumber: 1 });
+    Alert.alert("Trip Created", `Created "${title}" and added ${tripTargetPoi.name}.`);
+  };
+
   // Sort the server-fetched POIs
   const filteredPois = useMemo(() => {
     const sorted = [...pois];
@@ -316,14 +440,6 @@ export function HomeScreen({ navigation }: Props) {
     return sorted;
   }, [pois, sortMode, deviceLocation]);
 
-  const selectPoiOnMap = (poi: Poi) => {
-    navigation.navigate("PlaceDetails", { poi });
-  };
-
-  const clearSelection = () => {
-    setSelectedPoi(null);
-  };
-
   const toggleSort = () => {
     if (sortMode === "nearest") setSortMode("top_rated");
     else setSortMode("nearest");
@@ -333,6 +449,8 @@ export function HomeScreen({ navigation }: Props) {
 
   const focusCenter: [number, number] | undefined = selectedPoi
     ? [selectedPoi.lon, selectedPoi.lat]
+    : corridorRoute && corridorRoute.coordinates.length > 0
+    ? undefined
     : query.trim() && filteredPois.length > 0
     ? [filteredPois[0].lon, filteredPois[0].lat]
     : deviceLocation
@@ -354,59 +472,144 @@ export function HomeScreen({ navigation }: Props) {
         {/* Top Header: Title & Map/List Toggle */}
         <View style={styles.topBar}>
           <Text style={styles.headerTitle}>Explore</Text>
-          <TouchableOpacity
-            style={styles.toggleBtn}
-            onPress={() => setIsListOnlyMode((prev) => !prev)}
-            activeOpacity={0.8}
-          >
-            <MapListToggleIcon size={18} isList={isListOnlyMode} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Modern Search Bar */}
-        <View style={styles.searchRowWrap}>
-          <View style={styles.searchBar}>
-            <SearchIcon size={18} />
-            <TextInput
-              style={styles.searchInput}
-              value={query}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => setIsSearchFocused(false)}
-              onChangeText={(text) => {
-                setQuery(text);
-                if (selectedPoi) setSelectedPoi(null);
+          <View style={styles.headerRightActions}>
+            <TouchableOpacity
+              style={[styles.routeToggleBtn, routeModeActive && styles.routeToggleBtnActive]}
+              onPress={() => {
+                if (routeModeActive) {
+                  clearRouteCorridor();
+                } else {
+                  setRouteModeActive(true);
+                }
               }}
-              placeholder="Search places, regions, routes..."
-              placeholderTextColor="#9CA3AF"
-              returnKeyType="search"
-            />
-            {(query.length > 0 || isSearchFocused) && (
+              activeOpacity={0.8}
+            >
+              <RouteHighwayIcon size={17} color={routeModeActive ? "#FFFFFF" : "#18181B"} />
+              <Text style={[styles.routeToggleText, routeModeActive && styles.routeToggleTextActive]}>
+                {routeModeActive ? "Along Route" : "Find Detours"}
+              </Text>
+            </TouchableOpacity>
+
+            {!routeModeActive && (
               <TouchableOpacity
-                onPress={() => {
-                  setQuery("");
-                  setIsSearchFocused(false);
-                  requestAnimationFrame(() => {
-                    Keyboard.dismiss();
-                  });
-                }}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.toggleBtn}
+                onPress={() => setIsListOnlyMode((prev) => !prev)}
+                activeOpacity={0.8}
               >
-                <ClearIcon size={16} />
+                <MapListToggleIcon size={18} isList={isListOnlyMode} />
               </TouchableOpacity>
             )}
           </View>
-
-          <TouchableOpacity
-            style={styles.filterBtn}
-            onPress={() => setIsListOnlyMode((prev) => !prev)}
-            activeOpacity={0.8}
-          >
-            <FilterSliderIcon size={18} />
-          </TouchableOpacity>
         </View>
 
-        {/* Category Filter Chips (Hidden when actively typing/searching) */}
-        {!isSearchActive && (
+        {/* ROUTE SEARCH MODE INPUTS */}
+        {routeModeActive ? (
+          <View style={styles.routeInputsCard}>
+            <View style={styles.routeInputRow}>
+              <View style={styles.routeOriginDot} />
+              <TextInput
+                style={styles.routeTextInput}
+                placeholder="Origin (e.g. Nagpur or My Location)"
+                placeholderTextColor="#9CA3AF"
+                value={originInput}
+                onChangeText={setOriginInput}
+              />
+              {originInput.length > 0 && (
+                <TouchableOpacity onPress={() => setOriginInput("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <ClearIcon size={14} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.routeInputsDivider} />
+
+            <View style={styles.routeInputRow}>
+              <View style={styles.routeDestDot} />
+              <TextInput
+                style={styles.routeTextInput}
+                placeholder="Destination (e.g. Delhi, Pune, Goa)"
+                placeholderTextColor="#9CA3AF"
+                value={destInput}
+                onChangeText={setDestInput}
+                onSubmitEditing={() => executeCorridorSearch(originInput, destInput)}
+                returnKeyType="search"
+              />
+              {destInput.length > 0 && (
+                <TouchableOpacity onPress={() => setDestInput("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <ClearIcon size={14} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Popular Route Quick Chips */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.popularRouteScroll}>
+              {POPULAR_ROUTES.map((r, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={styles.popularRoutePill}
+                  onPress={() => {
+                    setOriginInput(r.origin);
+                    setDestInput(r.dest);
+                    executeCorridorSearch(r.origin, r.dest);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.popularRoutePillText}>🛣️ {r.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.searchRouteBtn}
+              onPress={() => executeCorridorSearch(originInput, destInput)}
+              activeOpacity={0.88}
+              disabled={corridorLoading}
+            >
+              {corridorLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.searchRouteBtnText}>Find Stops & Detours</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          /* STANDARD SEARCH BAR */
+          <View style={styles.searchRowWrap}>
+            <View style={styles.searchBar}>
+              <SearchIcon size={18} />
+              <TextInput
+                style={styles.searchInput}
+                value={query}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => setIsSearchFocused(false)}
+                onChangeText={(text) => {
+                  setQuery(text);
+                  if (selectedPoi) setSelectedPoi(null);
+                }}
+                placeholder="Search places, or 'Nagpur to Delhi'..."
+                placeholderTextColor="#9CA3AF"
+                returnKeyType="search"
+              />
+              {(query.length > 0 || isSearchFocused) && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setQuery("");
+                    setIsSearchFocused(false);
+                    requestAnimationFrame(() => {
+                      Keyboard.dismiss();
+                    });
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <ClearIcon size={16} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Category Filter Chips (Standard Mode only) */}
+        {!isSearchActive && !routeModeActive && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
             {CATEGORIES.map((cat) => {
               const isActive = selectedCategory === cat.id;
@@ -429,8 +632,8 @@ export function HomeScreen({ navigation }: Props) {
           </ScrollView>
         )}
 
-        {/* Radius Filter Options: 50 km / 100 km / 200 km / 500 km (only when not searching) */}
-        {!isSearchActive && (
+        {/* Radius Filter Options (Standard Mode only) */}
+        {!isSearchActive && !routeModeActive && (
           <View style={styles.radiusRow}>
             <Text style={styles.radiusHeading}>Search within</Text>
             {NEARBY_OPTIONS.map((km) => {
@@ -452,32 +655,67 @@ export function HomeScreen({ navigation }: Props) {
           </View>
         )}
 
-        {/* Results Location Info & Sort Control */}
-        <View style={styles.infoRow}>
-          <View style={styles.infoLocationCol}>
-            <Text style={styles.infoLocationText} numberOfLines={1}>
-              {query.trim()
-                ? `Showing results for "${query.trim()}"`
-                : deviceLocation
-                ? `Showing results within ${radiusKm} km`
-                : "Waiting for device location..."}
-            </Text>
-            {!query.trim() && (
-              <TouchableOpacity onPress={refreshLocation} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                {locating ? <ActivityIndicator size="small" color="#2563EB" /> : <RefreshIcon size={14} />}
-              </TouchableOpacity>
-            )}
-          </View>
+        {/* Results Location Info & Sort Control (Standard Mode only) */}
+        {!routeModeActive && (
+          <View style={styles.infoRow}>
+            <View style={styles.infoLocationCol}>
+              <Text style={styles.infoLocationText} numberOfLines={1}>
+                {query.trim()
+                  ? `Showing results for "${query.trim()}"`
+                  : deviceLocation
+                  ? `Showing results within ${radiusKm} km`
+                  : "Waiting for device location..."}
+              </Text>
+              {!query.trim() && (
+                <TouchableOpacity onPress={refreshLocation} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  {locating ? <ActivityIndicator size="small" color="#2563EB" /> : <RefreshIcon size={14} />}
+                </TouchableOpacity>
+              )}
+            </View>
 
-          <TouchableOpacity style={styles.sortBtn} onPress={toggleSort} activeOpacity={0.7}>
-            <Text style={styles.sortBtnText}>{sortLabel} ⌄</Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity style={styles.sortBtn} onPress={toggleSort} activeOpacity={0.7}>
+              <Text style={styles.sortBtnText}>{sortLabel} ⌄</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </SafeAreaView>
 
       {/* Main Content Area */}
-      {!isListOnlyMode && !query.trim() ? (
-        /* Map View with Pin selection */
+      {routeModeActive || corridorData ? (
+        /* ROUTE CORRIDOR MAP + DETOUR OVERLAY */
+        <View style={styles.mapArea}>
+          <Map3D
+            route={corridorRoute}
+            originLabel={corridorData?.route.origin ?? originInput}
+            pois={corridorMapPois}
+            clusterMode={false}
+            selectedPoiId={selectedPoi?.id}
+            onPoiPress={(poi) => {
+              setSelectedPoi(poi);
+            }}
+            initialCenter={[77.209, 28.6139]}
+            initialZoom={6}
+          />
+
+          {/* Bottom Along Your Journey Interactive Sheet */}
+          <View style={styles.corridorSheetWrapper}>
+            <AlongJourneySheet
+              corridorData={corridorData}
+              loading={corridorLoading}
+              onSelectPoi={(poi) => {
+                navigation.navigate("PlaceDetails", { poi });
+              }}
+              onAddToTrip={handleOpenAddToTrip}
+              onNavigatePoi={(poi) => {
+                navigation.navigate("TripNavigation", { poi });
+              }}
+              onClearRoute={clearRouteCorridor}
+              selectedPoiId={selectedPoi?.id}
+            />
+          </View>
+        </View>
+      ) : !isListOnlyMode && !query.trim() ? (
+        /* Standard Map View */
         <View style={styles.mapArea}>
           <Map3D
             route={null}
@@ -494,7 +732,7 @@ export function HomeScreen({ navigation }: Props) {
           />
         </View>
       ) : (
-        /* In-Page Scrollable Result Cards (Matching Reference Design 2) */
+        /* In-Page Scrollable Result Cards */
         <ScrollView
           style={styles.resultsScroll}
           contentContainerStyle={styles.resultsScrollContent}
@@ -523,12 +761,11 @@ export function HomeScreen({ navigation }: Props) {
               const isSaved = statusMap[p.id] === "saved";
               const catObj = CATEGORIES.find((c) => p.category.toLowerCase().includes(c.id));
               const categoryLabel = catObj ? catObj.label : (p.category || "").replace("_", " ");
-              const isSpecialCat = p.category.toLowerCase().includes("waterfall") || p.category.toLowerCase().includes("viewpoint");
 
-              // Format realistic region/locality
-              const locationSubtitle = p.description && p.description.length < 50
-                ? p.description
-                : `${categoryLabel} Destination, India`;
+              const locationSubtitle =
+                p.description && p.description.length < 50
+                  ? p.description
+                  : `${categoryLabel} Destination, India`;
 
               return (
                 <TouchableOpacity
@@ -537,7 +774,6 @@ export function HomeScreen({ navigation }: Props) {
                   onPress={() => navigation.navigate("PlaceDetails", { poi: p })}
                   activeOpacity={0.9}
                 >
-                  {/* Left Thumbnail Image */}
                   <View style={styles.cardThumbWrap}>
                     {p.photo_url ? (
                       <Image source={{ uri: p.photo_url }} style={styles.cardThumb} resizeMode="cover" />
@@ -546,34 +782,23 @@ export function HomeScreen({ navigation }: Props) {
                         <Text style={{ fontSize: 28 }}>{catObj?.icon ?? "📍"}</Text>
                       </View>
                     )}
-
-                    {/* Category Overlay Badge on bottom-left of thumbnail */}
                     <View style={styles.cardThumbBadge}>
                       <Text style={styles.cardThumbBadgeIcon}>{catObj?.icon ?? "📍"}</Text>
                       <Text style={styles.cardThumbBadgeText}>{categoryLabel}</Text>
                     </View>
                   </View>
 
-                  {/* Middle Content Details */}
                   <View style={styles.cardBody}>
                     <View style={styles.cardTitleRow}>
                       <Text style={styles.cardName} numberOfLines={1}>
                         {p.name}
                       </Text>
-
-                      {/* Optional Category Pill for Special Categories */}
-                      {isSpecialCat && (
-                        <View style={styles.catPillBadge}>
-                          <Text style={styles.catPillText}>{categoryLabel}</Text>
-                        </View>
-                      )}
                     </View>
 
                     <Text style={styles.cardRegion} numberOfLines={1}>
                       {locationSubtitle}
                     </Text>
 
-                    {/* Metadata line: Rating • Distance • Duration */}
                     <View style={styles.cardMetaLine}>
                       {rating > 0 && (
                         <View style={styles.cardMetaItem}>
@@ -589,13 +814,10 @@ export function HomeScreen({ navigation }: Props) {
                         </Text>
                       )}
 
-                      {p.best_time && (
-                        <Text style={styles.cardMetaText}>• {p.best_time}</Text>
-                      )}
+                      {p.best_time && <Text style={styles.cardMetaText}>• {p.best_time}</Text>}
                     </View>
                   </View>
 
-                  {/* Right Bookmark / Save Icon */}
                   <TouchableOpacity
                     style={styles.cardSaveBtn}
                     onPress={() => toggleSave(p)}
@@ -608,6 +830,24 @@ export function HomeScreen({ navigation }: Props) {
             })
           )}
         </ScrollView>
+      )}
+
+      {/* Add to Trip Bottom Sheet Modal */}
+      {tripTargetPoi && (
+        <AddToTripBottomSheet
+          visible={addToTripOpen}
+          poi={tripTargetPoi}
+          trips={trips}
+          onClose={() => {
+            setAddToTripOpen(false);
+            setTripTargetPoi(null);
+          }}
+          onStartNavigation={() => {
+            navigation.navigate("TripNavigation", { poi: tripTargetPoi });
+          }}
+          onAddToTripDay={handleAddToTripDay}
+          onCreateNewTrip={handleCreateNewTrip}
+        />
       )}
 
       <BottomTabBar activeTab="Explore" onTabPress={handleTabPress} />
@@ -637,6 +877,34 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#18181B",
     letterSpacing: -0.5,
+  },
+  headerRightActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  routeToggleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    borderWidth: 1.2,
+    borderColor: "#E5E7EB",
+    gap: 6,
+  },
+  routeToggleBtnActive: {
+    backgroundColor: colors.ink,
+    borderColor: colors.ink,
+  },
+  routeToggleText: {
+    fontSize: 12.5,
+    fontWeight: "700",
+    color: "#18181B",
+  },
+  routeToggleTextActive: {
+    color: "#FFFFFF",
   },
   toggleBtn: {
     width: 38,
@@ -677,48 +945,109 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
-  filterBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1.2,
-    borderColor: "#E5E7EB",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
-  },
   searchInput: {
     flex: 1,
     fontSize: 14.5,
     color: "#18181B",
     fontWeight: "500",
   },
-  categoryScroll: {
+  routeInputsCard: {
+    marginHorizontal: 18,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1.2,
+    borderColor: "#E5E7EB",
+    padding: 12,
+    marginBottom: 10,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  routeInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  routeOriginDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#2563EB",
+    marginRight: 10,
+  },
+  routeDestDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.accent,
+    marginRight: 10,
+  },
+  routeTextInput: {
+    flex: 1,
+    fontSize: 13.5,
+    fontWeight: "600",
+    color: colors.ink,
+    paddingVertical: 6,
+  },
+  routeInputsDivider: {
+    height: 1,
+    backgroundColor: "#F3F4F6",
+    marginVertical: 4,
+    marginLeft: 18,
+  },
+  popularRouteScroll: {
     gap: 8,
+    paddingTop: 8,
+    paddingBottom: 6,
+  },
+  popularRoutePill: {
+    backgroundColor: "#F4F4F5",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  popularRoutePillText: {
+    fontSize: 11.5,
+    fontWeight: "600",
+    color: "#4B5563",
+  },
+  searchRouteBtn: {
+    backgroundColor: colors.accent,
+    borderRadius: 14,
+    paddingVertical: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 6,
+  },
+  searchRouteBtnText: {
+    fontSize: 13.5,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  categoryScroll: {
     paddingHorizontal: 20,
-    paddingBottom: 8,
+    paddingVertical: 4,
+    gap: 8,
   },
   categoryChip: {
-    paddingHorizontal: 15,
-    paddingVertical: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 14,
     backgroundColor: "#FFFFFF",
     borderWidth: 1.2,
     borderColor: "#E5E7EB",
   },
   categoryChipActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
+    backgroundColor: "#18181B",
+    borderColor: "#18181B",
   },
   categoryChipText: {
     fontSize: 12.5,
-    fontWeight: "700",
-    color: "#374151",
+    fontWeight: "600",
+    color: "#4B5563",
   },
   categoryChipTextActive: {
     color: "#FFFFFF",
@@ -726,95 +1055,131 @@ const styles = StyleSheet.create({
   radiusRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
     paddingHorizontal: 20,
+    paddingTop: 8,
     paddingBottom: 6,
+    gap: 8,
   },
   radiusHeading: {
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: "600",
-    color: "#71717A",
+    color: "#9CA3AF",
     marginRight: 2,
   },
   radiusChip: {
     paddingHorizontal: 10,
-    paddingVertical: 4.5,
+    paddingVertical: 4,
     borderRadius: 10,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
   radiusChipActive: {
-    backgroundColor: "#18181B",
-    borderColor: "#18181B",
+    backgroundColor: "#EFF6FF",
+    borderColor: "#2563EB",
   },
   radiusChipText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#4B5563",
+    fontSize: 11.5,
+    fontWeight: "600",
+    color: "#6B7280",
   },
   radiusChipTextActive: {
-    color: "#FFFFFF",
+    color: "#2563EB",
+    fontWeight: "700",
   },
   infoRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingBottom: 8,
+    paddingVertical: 6,
   },
   infoLocationCol: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    flex: 1,
   },
   infoLocationText: {
     fontSize: 12,
-    fontWeight: "600",
-    color: "#71717A",
-    flexShrink: 1,
+    fontWeight: "500",
+    color: "#6B7280",
   },
   sortBtn: {
-    paddingVertical: 2,
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
   sortBtnText: {
     fontSize: 12,
-    fontWeight: "700",
-    color: "#18181B",
+    fontWeight: "600",
+    color: "#2563EB",
   },
   mapArea: {
     flex: 1,
+    position: "relative",
+  },
+  corridorSheetWrapper: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 30,
   },
   resultsScroll: {
     flex: 1,
-    backgroundColor: "#FAFAF8",
   },
   resultsScrollContent: {
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 110,
+    paddingBottom: 100,
     gap: 12,
+  },
+  loadingBox: {
+    paddingVertical: 60,
+    alignItems: "center",
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#71717A",
+  },
+  emptyBox: {
+    paddingVertical: 60,
+    alignItems: "center",
+    paddingHorizontal: 30,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#18181B",
+    marginBottom: 6,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: "#71717A",
+    textAlign: "center",
+    lineHeight: 18,
   },
   resultCard: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#F4F4F5",
+    padding: 10,
+    borderWidth: 1.2,
+    borderColor: "#E5E7EB",
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
-    shadowRadius: 8,
+    shadowRadius: 6,
     elevation: 2,
+    gap: 12,
   },
   cardThumbWrap: {
-    width: 92,
-    height: 92,
-    borderRadius: 16,
+    width: 88,
+    height: 88,
+    borderRadius: 14,
     overflow: "hidden",
     position: "relative",
   },
@@ -823,119 +1188,70 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   cardThumbFallback: {
-    backgroundColor: "#F3F4F6",
+    backgroundColor: "#F4F4F5",
     alignItems: "center",
     justifyContent: "center",
   },
   cardThumbBadge: {
     position: "absolute",
-    bottom: 6,
-    left: 6,
+    bottom: 5,
+    left: 5,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    backgroundColor: "rgba(24, 24, 27, 0.75)",
     paddingHorizontal: 6,
-    paddingVertical: 2.5,
-    borderRadius: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
     gap: 3,
   },
   cardThumbBadgeIcon: {
     fontSize: 9,
-    color: "#FFFFFF",
   },
   cardThumbBadgeText: {
-    fontSize: 10.5,
+    fontSize: 9,
     fontWeight: "700",
     color: "#FFFFFF",
-    textTransform: "capitalize",
   },
   cardBody: {
     flex: 1,
-    marginLeft: 14,
-    justifyContent: "center",
   },
   cardTitleRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 6,
   },
   cardName: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#18181B",
-    flex: 1,
-    letterSpacing: -0.2,
-  },
-  catPillBadge: {
-    backgroundColor: "#EFF6FF",
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  catPillText: {
-    fontSize: 10.5,
+    fontSize: 15,
     fontWeight: "700",
-    color: "#2563EB",
+    color: "#18181B",
   },
   cardRegion: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#71717A",
-    fontWeight: "500",
-    marginTop: 3,
+    marginTop: 2,
+    marginBottom: 6,
   },
   cardMetaLine: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginTop: 8,
   },
   cardMetaItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 3,
   },
   cardRatingVal: {
-    fontSize: 12.5,
-    fontWeight: "800",
+    fontSize: 12,
+    fontWeight: "700",
     color: "#18181B",
   },
   cardMetaText: {
-    fontSize: 12.5,
-    color: "#52525B",
+    fontSize: 12,
     fontWeight: "500",
+    color: "#71717A",
   },
   cardSaveBtn: {
     padding: 6,
-    marginLeft: 4,
-  },
-  loadingBox: {
-    paddingVertical: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loadingText: {
-    fontSize: 13.5,
-    color: "#71717A",
-    fontWeight: "500",
-    marginTop: 12,
-  },
-  emptyBox: {
-    paddingVertical: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 20,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#18181B",
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: "#71717A",
-    textAlign: "center",
-    marginTop: 6,
-    lineHeight: 18,
   },
 });

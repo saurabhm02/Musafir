@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   Image,
   Platform,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -17,11 +19,18 @@ import { Map3D } from "../components/Map3D";
 import { colors } from "../theme";
 import type { RootStackParamList } from "../navigation";
 import { getCurrentLocation, getCachedLocation, type Coords } from "../lib/location";
-import { fetchNavigationRoute, fetchRoute, resolveTravelMode, type Route } from "../lib/routing";
+import {
+  fetchNavigationRoute,
+  resolveTravelMode,
+  fetchRouteCorridorRecommendations,
+  type Route,
+  type RecommendedPoi,
+} from "../lib/routing";
 import { fetchPoiStatusMap, setPoiStatus } from "../lib/poiStatus";
 import { fetchTrips, addTripStop, createTrip, type TripSummary } from "../lib/trips";
 import { fetchPoiDetails, type PoiDetails } from "../lib/pois";
 import { AddToTripBottomSheet } from "../components/AddToTripBottomSheet";
+import { recommendedPoiToPoi } from "../components/AlongJourneySheet";
 import type { Poi } from "../lib/pois";
 
 function ArrowBackIcon({ size = 22 }: { size?: number }) {
@@ -109,6 +118,7 @@ export function TripNavigationScreen({ route: screenRoute, navigation }: Props) 
   const [poiDetails, setPoiDetails] = useState<PoiDetails | null>(null);
   const [addToTripOpen, setAddToTripOpen] = useState(false);
   const [trips, setTrips] = useState<TripSummary[]>([]);
+  const [corridorStops, setCorridorStops] = useState<RecommendedPoi[]>([]);
 
   useEffect(() => {
     fetchPoiStatusMap()
@@ -133,7 +143,26 @@ export function TripNavigationScreen({ route: screenRoute, navigation }: Props) 
         setDeviceLocation(loc);
         try {
           const r = await fetchNavigationRoute(loc, { lat: poi.lat, lon: poi.lon }, travelMode);
-          if (!cancelled) setRouteData(r);
+          if (!cancelled) {
+            setRouteData(r);
+
+            // Fetch stops along the route using Corridor Search API
+            fetchRouteCorridorRecommendations({
+              origin: { lat: loc.lat, lon: loc.lon, name: "Current Location" },
+              destination: { lat: poi.lat, lon: poi.lon, name: poi.name },
+              coordinates: r.coordinates,
+              distanceKm: r.distanceKm,
+              durationMin: r.durationMin,
+              maxDetourMinutes: 30,
+            })
+              .then((res) => {
+                if (!cancelled) {
+                  // Filter out destination POI itself
+                  setCorridorStops(res.recommendations.filter((c) => c.id !== poi.id));
+                }
+              })
+              .catch(() => {});
+          }
         } catch {
           if (!cancelled) {
             Alert.alert("Routing Error", "Unable to calculate route to destination from your current location.");
@@ -174,6 +203,17 @@ export function TripNavigationScreen({ route: screenRoute, navigation }: Props) 
     Alert.alert("Trip Created", `Created "${title}" and added ${poi.name}.`);
   };
 
+  // Map markers: Destination + any corridor pitstops
+  const mapPois = useMemo(() => {
+    const list: Poi[] = [poi];
+    for (const s of corridorStops) {
+      const p = recommendedPoiToPoi(s);
+      (p as any).detourLabel = `+${s.detourDurationMin}m`;
+      list.push(p);
+    }
+    return list;
+  }, [poi, corridorStops]);
+
   // Format Duration & Distance
   const durationMin = routeData?.durationMin ?? 72;
   const distanceKm = routeData?.distanceKm ?? 32;
@@ -206,8 +246,12 @@ export function TripNavigationScreen({ route: screenRoute, navigation }: Props) 
         <Map3D
           route={routeData}
           originLabel="Your Location"
-          pois={[poi]}
-          onPoiPress={() => {}}
+          pois={mapPois}
+          onPoiPress={(selected) => {
+            if (selected.id !== poi.id) {
+              navigation.navigate("PlaceDetails", { poi: selected });
+            }
+          }}
           initialCenter={deviceLocation ? [deviceLocation.lon, deviceLocation.lat] : [poi.lon, poi.lat]}
           initialZoom={11}
         />
@@ -266,6 +310,42 @@ export function TripNavigationScreen({ route: screenRoute, navigation }: Props) 
               <SwapIcon size={16} />
             </View>
           </View>
+
+          {/* Pitstops Along Route Carousel (If available) */}
+          {corridorStops.length > 0 && (
+            <View style={styles.corridorStopsSection}>
+              <Text style={styles.corridorStopsTitle}>Stops on your way ({corridorStops.length})</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.corridorScroll}>
+                {corridorStops.map((stop) => (
+                  <TouchableOpacity
+                    key={stop.id}
+                    style={styles.stopCard}
+                    onPress={() => {
+                      navigation.navigate("PlaceDetails", { poi: recommendedPoiToPoi(stop) });
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    {stop.photoUrl ? (
+                      <Image source={{ uri: stop.photoUrl }} style={styles.stopThumb} resizeMode="cover" />
+                    ) : (
+                      <View style={[styles.stopThumb, styles.stopThumbPlaceholder]}>
+                        <Text style={{ fontSize: 14 }}>📍</Text>
+                      </View>
+                    )}
+                    <View style={styles.stopInfo}>
+                      <Text style={styles.stopName} numberOfLines={1}>
+                        {stop.name}
+                      </Text>
+                      <View style={styles.stopBadgeRow}>
+                        <Text style={styles.stopDetourPill}>+{stop.detourDurationMin}m detour</Text>
+                        <Text style={styles.stopDistKm}>At KM {Math.round(stop.kmAlongRoute)}</Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
           {/* Route Summary Row */}
           <View style={styles.routeSummaryRow}>
@@ -378,16 +458,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     color: colors.accent,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
   },
   destName: {
-    fontSize: 15.5,
+    fontSize: 16,
     fontWeight: "800",
     color: "#18181B",
+    marginTop: 1,
   },
   destLoc: {
-    fontSize: 11.5,
+    fontSize: 12,
     color: "#71717A",
     textTransform: "capitalize",
+    marginTop: 1,
   },
   heartBtn: {
     width: 38,
@@ -395,7 +479,9 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F3F4F6",
+    backgroundColor: "#FAFAF8",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
   bottomOverlay: {
     position: "absolute",
@@ -403,19 +489,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    paddingHorizontal: 16,
-    paddingBottom: Platform.OS === "android" ? 16 : 8,
   },
   bottomCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 26,
-    paddingHorizontal: 18,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 16,
-    borderWidth: 1.2,
-    borderColor: "#E5E7EB",
+    paddingBottom: Platform.OS === "android" ? 18 : 8,
     shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.12,
     shadowRadius: 16,
     elevation: 8,
@@ -431,11 +514,11 @@ const styles = StyleSheet.create({
   waypointsBox: {
     backgroundColor: "#FAFAF8",
     borderRadius: 18,
-    borderWidth: 1,
+    borderWidth: 1.2,
     borderColor: "#E5E7EB",
     paddingHorizontal: 14,
     paddingVertical: 10,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   waypointRow: {
     flexDirection: "row",
@@ -463,64 +546,125 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: "600",
     color: "#9CA3AF",
+    textTransform: "uppercase",
   },
   waypointVal: {
-    fontSize: 13.5,
+    fontSize: 14,
     fontWeight: "700",
     color: "#18181B",
   },
   waypointDivider: {
     height: 1,
     backgroundColor: "#E5E7EB",
-    marginVertical: 6,
+    marginVertical: 4,
     marginLeft: 22,
+  },
+  corridorStopsSection: {
+    marginBottom: 10,
+  },
+  corridorStopsTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#4B5563",
+    marginBottom: 6,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  corridorScroll: {
+    gap: 8,
+  },
+  stopCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    width: 190,
+    gap: 8,
+  },
+  stopThumb: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+  },
+  stopThumbPlaceholder: {
+    backgroundColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stopInfo: {
+    flex: 1,
+  },
+  stopName: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#1E293B",
+  },
+  stopBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 2,
+  },
+  stopDetourPill: {
+    fontSize: 9.5,
+    fontWeight: "700",
+    color: "#2563EB",
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  stopDistKm: {
+    fontSize: 9.5,
+    color: "#64748B",
   },
   routeSummaryRow: {
     flexDirection: "row",
     alignItems: "center",
+    marginBottom: 14,
     paddingHorizontal: 4,
-    marginBottom: 16,
   },
   carIconWrap: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    backgroundColor: "#F4F4F5",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginRight: 10,
   },
   routeTextCol: {
     flex: 1,
   },
   routeTimeDist: {
-    fontSize: 14.5,
+    fontSize: 15,
     fontWeight: "800",
     color: "#18181B",
   },
   routeDistSub: {
-    fontSize: 13.5,
-    fontWeight: "700",
-    color: "#18181B",
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#71717A",
   },
   routeDesc: {
-    fontSize: 11.5,
+    fontSize: 12,
     color: "#71717A",
     marginTop: 1,
   },
   addToTripPill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    backgroundColor: "#F4F4F5",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: 12,
-    backgroundColor: "#FAFAF8",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    gap: 5,
   },
   addToTripPillText: {
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: "700",
     color: "#4B5563",
   },
@@ -534,7 +678,7 @@ const styles = StyleSheet.create({
     gap: 8,
     shadowColor: colors.accent,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.28,
     shadowRadius: 10,
     elevation: 4,
   },
@@ -542,6 +686,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "800",
     color: "#FFFFFF",
-    letterSpacing: 0.2,
+    letterSpacing: -0.2,
   },
 });
