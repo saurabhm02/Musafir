@@ -185,16 +185,32 @@ model poi_routes {
 }
 
 model trips {
-  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id    String       @db.Uuid
-  title      String
-  destination String?
-  day_count  Int          @default(1)
-  status     String       @default("draft")
-  created_at DateTime?    @default(now()) @db.Timestamptz(6)
-  updated_at DateTime?    @default(now()) @db.Timestamptz(6)
-  users      users        @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  trip_stops trip_stops[]
+  id                   String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id              String       @db.Uuid
+  title                String
+  destination          String?
+  day_count            Int          @default(1)
+  status               String       @default("planned")
+  started_at           DateTime?    @db.Timestamptz(6)
+  completed_at         DateTime?    @db.Timestamptz(6)
+  actual_distance_km   Decimal?     @db.Decimal
+  actual_duration_min  Decimal?     @db.Decimal
+  moving_duration_min  Decimal?     @db.Decimal
+  elevation_gain_m     Decimal?     @db.Decimal
+  max_speed_kmh        Decimal?     @db.Decimal
+  avg_speed_kmh        Decimal?     @db.Decimal
+  recorded_route       Unsupported("geography(linestring, 4326)")?
+  start_location       Unsupported("geography(point, 4326)")?
+  end_location         Unsupported("geography(point, 4326)")?
+  telemetry_s3_key     String?
+  is_public            Boolean?     @default(false)
+  created_at           DateTime?    @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?    @default(now()) @db.Timestamptz(6)
+  users                users        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  trip_stops           trip_stops[]
+
+  @@index([user_id, status], map: "trips_user_status_idx")
+  @@index([recorded_route], map: "trips_recorded_route_gix", type: Gist)
 }
 
 model trip_stops {
@@ -205,6 +221,9 @@ model trip_stops {
   time_label String?
   note       String?
   sort_order Int       @default(0)
+  status     String?   @default("pending")
+  arrived_at DateTime? @db.Timestamptz(6)
+  departed_at DateTime? @db.Timestamptz(6)
   created_at DateTime? @default(now()) @db.Timestamptz(6)
   trips      trips     @relation(fields: [trip_id], references: [id], onDelete: Cascade)
   pois       pois      @relation(fields: [poi_id], references: [id], onDelete: Cascade)
