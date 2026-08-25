@@ -28,7 +28,7 @@ export function ClusterBubble({ count, onPress }: { count: number; onPress: () =
     <Animated.View entering={ZoomIn.springify().damping(14)}>
       <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
         <View style={[styles.cluster, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg }]}>
-          <Text style={styles.clusterText}>{count}</Text>
+          <Text style={styles.clusterText}>{String(count)}</Text>
         </View>
       </TouchableOpacity>
     </Animated.View>

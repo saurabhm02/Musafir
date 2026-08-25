@@ -8,6 +8,8 @@ import type { RootStackParamList } from "../navigation";
 import { BottomTabBar, type TabType } from "../components/BottomTabBar";
 import { fetchTrips, type TripSummary } from "../lib/trips";
 import { fetchPoiStatusCounts } from "../lib/poiStatus";
+import { fetchCollections } from "../lib/collections";
+import { fetchNotifications } from "../lib/notifications";
 
 function PawIcon({ size = 18 }: { size?: number }) {
   return (
@@ -83,11 +85,13 @@ const STATUS_LABEL: Record<string, string> = { draft: "Draft", in_progress: "In 
 export function DashboardScreen({ navigation }: Props) {
   const [trips, setTrips] = useState<TripSummary[]>([]);
   const [counts, setCounts] = useState({ saved: 0, want_to_go: 0, visited: 0 });
+  const [collectionCount, setCollectionCount] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
       fetchTrips().then(setTrips).catch(() => {});
       fetchPoiStatusCounts().then(setCounts).catch(() => {});
+      fetchCollections().then((cols) => setCollectionCount(cols.length)).catch(() => {});
     }, []),
   );
 
@@ -111,7 +115,7 @@ export function DashboardScreen({ navigation }: Props) {
             <PawIcon size={18} />
           </View>
         </View>
-        <TouchableOpacity style={styles.bellBtn} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.bellBtn} onPress={() => navigation.navigate("Notifications")} activeOpacity={0.7}>
           <BellIcon size={20} />
         </TouchableOpacity>
       </View>
@@ -184,26 +188,42 @@ export function DashboardScreen({ navigation }: Props) {
           <Text style={styles.sectionTitle}>My Spots</Text>
         </View>
         <View style={styles.spotsGrid}>
-          <View style={styles.spotTile}>
+          <TouchableOpacity
+            style={styles.spotTile}
+            onPress={() => navigation.navigate("SavedSpots")}
+            activeOpacity={0.8}
+          >
             <HeartIcon size={18} />
             <Text style={styles.spotCount}>{counts.saved}</Text>
             <Text style={styles.spotLabel}>Saved</Text>
-          </View>
-          <View style={styles.spotTile}>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.spotTile}
+            onPress={() => navigation.navigate("WantToGo")}
+            activeOpacity={0.8}
+          >
             <BookmarkIcon size={18} />
             <Text style={styles.spotCount}>{counts.want_to_go}</Text>
             <Text style={styles.spotLabel}>Want to go</Text>
-          </View>
-          <View style={styles.spotTile}>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.spotTile}
+            onPress={() => navigation.navigate("Visited")}
+            activeOpacity={0.8}
+          >
             <CheckCircleIcon size={18} />
             <Text style={styles.spotCount}>{counts.visited}</Text>
             <Text style={styles.spotLabel}>Visited</Text>
-          </View>
-          <View style={styles.spotTile}>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.spotTile}
+            onPress={() => navigation.navigate("Collections")}
+            activeOpacity={0.8}
+          >
             <CollectionIcon size={18} />
-            <Text style={styles.spotCount}>0</Text>
+            <Text style={styles.spotCount}>{collectionCount}</Text>
             <Text style={styles.spotLabel}>Collections</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {draftTrips.length > 0 && (

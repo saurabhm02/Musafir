@@ -7,9 +7,14 @@ import { routeSearchRoutes } from "./routes/routeSearch";
 import { uploadRoutes } from "./routes/upload";
 import { tripsRoutes } from "./routes/trips";
 import { poiStatusRoutes } from "./routes/poiStatus";
+import { photoReviewRoutes } from "./routes/photoReview";
+import { navigationRoutes } from "./routes/navigation";
+import { collectionsRoutes } from "./routes/collections";
+import { notificationsRoutes } from "./routes/notifications";
 
 Bun.serve({
   port: 3001,
+  idleTimeout: 120,
   routes: {
     ...healthRoutes,
     ...authRoutes,
@@ -20,6 +25,10 @@ Bun.serve({
     ...uploadRoutes,
     ...tripsRoutes,
     ...poiStatusRoutes,
+    ...photoReviewRoutes,
+    ...navigationRoutes,
+    ...collectionsRoutes,
+    ...notificationsRoutes,
   },
 });
 

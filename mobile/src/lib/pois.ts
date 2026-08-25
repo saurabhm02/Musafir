@@ -13,23 +13,77 @@ export type Poi = {
   avg_rating: number | string | null;
   total_ratings: number | null;
   best_time: string | null;
+  distance_km?: number;
 };
 
-// Input: an optional text query
-// Output: every POI in the database (or a name/description/category match), with its cover photo if one exists
-// ponytail: fetches all POIs and filters near the route in JS. Fine at
-// seed-data scale; move the "near this route" check into a PostGIS RPC
-// once POI count is too big to ship to the client whole.
+export type PoiDetails = Poi & {
+  address: string | null;
+  tags: string[];
+  metadata: {
+    difficulty: string | null;
+    distance_km: number | null;
+    duration_hours: number | null;
+    elevation_gain_m: number | null;
+    max_elevation_m: number | null;
+    best_time: string | null;
+    starting_point: string | null;
+    ending_point: string | null;
+    state: string | null;
+    district: string | null;
+  } | null;
+  photos: {
+    id: string;
+    url: string;
+    source: string;
+    attribution: string | null;
+  }[];
+  routes: {
+    id: string;
+    route_type: string;
+    distance_km: number | null;
+    elevation_gain_m: number | null;
+    geometry: any;
+  }[];
+};
+
+export type NearbyPoi = Poi & { distance_km: number };
+
+// Server-side text search across all India POIs
+export async function fetchSearchPois(
+  query: string,
+  category?: string,
+  limit = 60,
+  signal?: AbortSignal,
+): Promise<Poi[]> {
+  const cleanQ = query.trim();
+  if (!cleanQ) return [];
+
+  const catParam = category && category !== "all" ? `&category=${encodeURIComponent(category)}` : "";
+  return api<Poi[]>(`/pois?q=${encodeURIComponent(cleanQ)}${catParam}&limit=${limit}`, { signal });
+}
+
+export async function fetchNearbyPois(
+  lat: number,
+  lon: number,
+  radiusKm: number,
+  category?: string,
+  limit = 80,
+  signal?: AbortSignal,
+): Promise<NearbyPoi[]> {
+  const catParam = category && category !== "all" ? `&category=${encodeURIComponent(category)}` : "";
+  return api<NearbyPoi[]>(
+    `/pois/nearby?lat=${lat}&lon=${lon}&radiusKm=${radiusKm}${catParam}&limit=${limit}`,
+    { signal },
+  );
+}
+
 export async function fetchAllPois(q?: string): Promise<Poi[]> {
   return api<Poi[]>(q ? `/pois?q=${encodeURIComponent(q)}` : "/pois");
 }
 
-export type NearbyPoi = Poi & { distance_km: number };
-
-// Input: a device coordinate + search radius in km
-// Output: POIs within that radius, nearest-first -- backs Explore's "Nearby" toggle
-export async function fetchNearbyPois(lat: number, lon: number, radiusKm: number): Promise<NearbyPoi[]> {
-  return api<NearbyPoi[]>(`/pois/nearby?lat=${lat}&lon=${lon}&radiusKm=${radiusKm}`);
+// Full POI details with photos, metadata, and routes
+export async function fetchPoiDetails(id: string): Promise<PoiDetails> {
+  return api<PoiDetails>(`/pois/${id}`);
 }
 
 function haversineKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
@@ -42,16 +96,14 @@ function haversineKm(a: { lat: number; lon: number }, b: { lat: number; lon: num
   return R * 2 * Math.asin(Math.sqrt(s));
 }
 
-// Input: a route's coordinates and the full POI list
-// Output: only the POIs within 3km of some point on the route
+// Returns only the POIs within maxKm of some point on the route
 export function poisNearRoute(routeCoords: [number, number][], pois: Poi[], maxKm = 3): Poi[] {
   return pois.filter((poi) =>
     routeCoords.some((c) => haversineKm({ lat: c[1], lon: c[0] }, { lat: poi.lat, lon: poi.lon }) <= maxKm),
   );
 }
 
-// Input: a new POI's name/category/coordinates + an optional photo file uri
-// Output: the created POI's id
+// Create new POI
 export async function createPoi(input: {
   name: string;
   category: string;
