@@ -11,6 +11,7 @@ import { photoReviewRoutes } from "./routes/photoReview";
 import { navigationRoutes } from "./routes/navigation";
 import { collectionsRoutes } from "./routes/collections";
 import { notificationsRoutes } from "./routes/notifications";
+import { adminMemoriesRoutes } from "./routes/adminMemories";
 
 Bun.serve({
   port: 3001,
@@ -29,6 +30,7 @@ Bun.serve({
     ...navigationRoutes,
     ...collectionsRoutes,
     ...notificationsRoutes,
+    ...adminMemoriesRoutes,
   },
 });
 

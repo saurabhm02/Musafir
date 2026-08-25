@@ -18,15 +18,31 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 import type { RootStackParamList } from "../navigation";
 import { BottomTabBar, type TabType } from "../components/BottomTabBar";
-import { fetchMemories, type Memory } from "../lib/memories";
+import { fetchPoiMemories, type Memory } from "../lib/memories";
 import { fetchPoiStatusMap, setPoiStatus, type PoiStatus } from "../lib/poiStatus";
 import { fetchTrips, addTripStop, createTrip, type TripSummary } from "../lib/trips";
 import { fetchPoiDetails, type PoiDetails } from "../lib/pois";
 import { colors } from "../theme";
 import { FullScreenPhotoViewer, type PhotoItem } from "../components/FullScreenPhotoViewer";
 import { AddToTripBottomSheet } from "../components/AddToTripBottomSheet";
+import { AddMemoryModal } from "../components/AddMemoryModal";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+function CameraSmallIcon({ size = 16, color = colors.accent }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="12" cy="13" r="4" stroke={color} strokeWidth={2} />
+    </Svg>
+  );
+}
 
 function ArrowBackIcon({ size = 20 }: { size?: number }) {
   return (
@@ -121,6 +137,7 @@ export function PlaceDetailsScreen({ route, navigation }: Props) {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [readMore, setReadMore] = useState(false);
   const [addToTripOpen, setAddToTripOpen] = useState(false);
+  const [addMemoryOpen, setAddMemoryOpen] = useState(false);
   const [trips, setTrips] = useState<TripSummary[]>([]);
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
   const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
@@ -128,7 +145,7 @@ export function PlaceDetailsScreen({ route, navigation }: Props) {
   useFocusEffect(
     useCallback(() => {
       fetchPoiStatusMap().then((map) => setStatus(map[poi.id] ?? null)).catch(() => {});
-      fetchMemories(poi.id).then(setMemories).catch(() => {});
+      fetchPoiMemories(poi.id).then((res) => setMemories(res.items)).catch(() => {});
       fetchPoiDetails(poi.id).then(setDetails).catch(() => {});
       fetchTrips().then(setTrips).catch(() => {});
     }, [poi.id]),
@@ -180,8 +197,8 @@ export function PlaceDetailsScreen({ route, navigation }: Props) {
     ...memories.map((m) => ({
       id: m.id,
       url: m.photo_url,
-      source: "User Memory",
-      attribution: null,
+      source: "Traveler Memory",
+      attribution: m.caption,
     })),
   ];
 
@@ -198,6 +215,12 @@ export function PlaceDetailsScreen({ route, navigation }: Props) {
   const openViewer = (index: number) => {
     setPhotoViewerIndex(index);
     setPhotoViewerOpen(true);
+  };
+
+  const openMemoryViewer = (memoryIndex: number) => {
+    const sourcePhotosCount = details?.photos?.length ?? 0;
+    const targetIndex = sourcePhotosCount + memoryIndex;
+    openViewer(Math.max(0, Math.min(targetIndex, allPhotos.length - 1)));
   };
 
   const locationSubtitle = details?.metadata?.state
@@ -369,6 +392,71 @@ export function PlaceDetailsScreen({ route, navigation }: Props) {
             </View>
           )}
 
+          {/* Traveler Memories Section */}
+          <View style={styles.memoriesSection}>
+            <View style={styles.photosHeaderRow}>
+              <View style={styles.memoriesTitleRow}>
+                <Text style={styles.sectionHeader}>Traveler Memories</Text>
+                {memories.length > 0 && (
+                  <View style={styles.memoryCountBadge}>
+                    <Text style={styles.memoryCountText}>{memories.length}</Text>
+                  </View>
+                )}
+              </View>
+              <TouchableOpacity
+                style={styles.addMemoryBtn}
+                onPress={() => setAddMemoryOpen(true)}
+                activeOpacity={0.8}
+              >
+                <CameraSmallIcon size={14} color={colors.accent} />
+                <Text style={styles.addMemoryBtnText}>+ Add Memory</Text>
+              </TouchableOpacity>
+            </View>
+
+            {memories.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.galleryScroll}>
+                {memories.map((m, idx) => (
+                  <TouchableOpacity
+                    key={m.id}
+                    onPress={() => openMemoryViewer(idx)}
+                    activeOpacity={0.88}
+                    style={styles.memoryCard}
+                  >
+                    <Image
+                      source={{ uri: m.thumbnail_url || m.photo_url }}
+                      style={styles.memoryThumb}
+                      resizeMode="cover"
+                    />
+                    {m.caption ? (
+                      <View style={styles.memoryCaptionOverlay}>
+                        <Text style={styles.memoryCaptionText} numberOfLines={1}>
+                          {m.caption}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : (
+              <TouchableOpacity
+                style={styles.memoryEmptyCard}
+                onPress={() => setAddMemoryOpen(true)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.memoryEmptyIconWrap}>
+                  <CameraSmallIcon size={22} color={colors.accent} />
+                </View>
+                <View style={styles.memoryEmptyTextCol}>
+                  <Text style={styles.memoryEmptyTitle}>No traveler memories yet</Text>
+                  <Text style={styles.memoryEmptyDesc}>Be the first to share your real photo of this place!</Text>
+                </View>
+                <View style={styles.memoryEmptyPlusBadge}>
+                  <Text style={styles.memoryEmptyPlusText}>Add</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+
           {/* Bottom spacing */}
           <View style={{ height: 110 }} />
         </ScrollView>
@@ -414,6 +502,17 @@ export function PlaceDetailsScreen({ route, navigation }: Props) {
         onStartNavigation={handleStartNavigationFlow}
         onAddToTripDay={handleAddToTripDay}
         onCreateNewTrip={handleCreateNewTrip}
+      />
+
+      {/* Add Memory Modal */}
+      <AddMemoryModal
+        visible={addMemoryOpen}
+        poiId={poi.id}
+        placeName={poi.name}
+        onClose={() => setAddMemoryOpen(false)}
+        onSuccess={(newMem) => {
+          setMemories((prev) => [newMem, ...prev.filter((m) => m.id !== newMem.id)]);
+        }}
       />
     </View>
   );
@@ -717,6 +816,116 @@ const styles = StyleSheet.create({
   bottomStartNavText: {
     fontSize: 14.5,
     fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  memoriesSection: {
+    marginTop: 24,
+  },
+  memoriesTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  memoryCountBadge: {
+    backgroundColor: colors.accentSoft,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  memoryCountText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: colors.accent,
+  },
+  addMemoryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: colors.accentSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  addMemoryBtnText: {
+    fontSize: 12.5,
+    fontWeight: "700",
+    color: colors.accent,
+  },
+  memoryCard: {
+    width: 140,
+    height: 140,
+    borderRadius: 18,
+    overflow: "hidden",
+    position: "relative",
+    backgroundColor: "#18181B",
+    borderWidth: 1.2,
+    borderColor: "#E5E7EB",
+  },
+  memoryThumb: {
+    width: "100%",
+    height: "100%",
+  },
+  memoryCaptionOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  memoryCaptionText: {
+    fontSize: 10.5,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  memoryEmptyCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1.2,
+    borderColor: "#E5E7EB",
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    gap: 12,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  memoryEmptyIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.accentSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  memoryEmptyTextCol: {
+    flex: 1,
+  },
+  memoryEmptyTitle: {
+    fontSize: 13.5,
+    fontWeight: "700",
+    color: "#18181B",
+  },
+  memoryEmptyDesc: {
+    fontSize: 11.5,
+    color: "#71717A",
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  memoryEmptyPlusBadge: {
+    backgroundColor: colors.accent,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  memoryEmptyPlusText: {
+    fontSize: 12,
+    fontWeight: "700",
     color: "#FFFFFF",
   },
 });
