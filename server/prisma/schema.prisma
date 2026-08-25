@@ -65,6 +65,7 @@ model route_segments {
   end_coord        Unsupported("geography")?
   distance_km      Decimal?                   @db.Decimal
   elevation_gain_m Decimal?                   @db.Decimal
+  bearing_deg      Int?
   created_at       DateTime?                  @default(now()) @db.Timestamptz(6)
   poi_route        poi_route[]
   routes           routes?                    @relation(fields: [route_id], references: [id], onDelete: Cascade)
@@ -247,12 +248,13 @@ model poi_route {
   id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   poi_id            String?         @db.Uuid
   route_id          String?         @db.Uuid
-  segment_id        String?         @db.Uuid
-  detour_distance_m Decimal?        @db.Decimal
-  is_on_route       Boolean?        @default(true)
-  pois              pois?           @relation(fields: [poi_id], references: [id], onDelete: Cascade)
-  routes            routes?         @relation(fields: [route_id], references: [id], onDelete: Cascade)
-  route_segments    route_segments? @relation(fields: [segment_id], references: [id], onDelete: Cascade)
+  segment_id          String?         @db.Uuid
+  detour_distance_m   Decimal?        @db.Decimal
+  detour_duration_sec Int?
+  is_on_route         Boolean?        @default(true)
+  pois                pois?           @relation(fields: [poi_id], references: [id], onDelete: Cascade)
+  routes              routes?         @relation(fields: [route_id], references: [id], onDelete: Cascade)
+  route_segments      route_segments? @relation(fields: [segment_id], references: [id], onDelete: Cascade)
 
   @@index([route_id], map: "poi_route_route_idx")
   @@index([segment_id], map: "poi_route_segment_idx")

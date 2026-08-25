@@ -80,7 +80,13 @@ function CollectionIcon({ size = 18 }: { size?: number }) {
 
 type Props = NativeStackScreenProps<RootStackParamList, "Dashboard">;
 
-const STATUS_LABEL: Record<string, string> = { draft: "Draft", in_progress: "In progress", completed: "Completed" };
+const STATUS_LABEL: Record<string, string> = {
+  planned: "Planned",
+  active: "In progress",
+  paused: "Paused",
+  completed: "Completed",
+  cancelled: "Cancelled",
+};
 
 export function DashboardScreen({ navigation }: Props) {
   const [trips, setTrips] = useState<TripSummary[]>([]);
@@ -101,8 +107,8 @@ export function DashboardScreen({ navigation }: Props) {
     else if (tab === "Profile") navigation.navigate("Auth");
   }
 
-  const activeTrips = trips.filter((t) => t.status !== "draft");
-  const draftTrips = trips.filter((t) => t.status === "draft");
+  const activeTrips = trips.filter((t) => t.status !== "planned");
+  const plannedTrips = trips.filter((t) => t.status === "planned");
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
@@ -173,9 +179,9 @@ export function DashboardScreen({ navigation }: Props) {
                   <Text style={styles.tripMeta}>
                     {trip.dayCount} Day{trip.dayCount === 1 ? "" : "s"} • {trip.placeCount} Places
                   </Text>
-                  <View style={[styles.statusBadge, trip.status === "in_progress" ? styles.statusInProgress : styles.statusCompleted]}>
-                    <Text style={[styles.statusText, trip.status === "in_progress" ? styles.statusTextProgress : styles.statusTextCompleted]}>
-                      {STATUS_LABEL[trip.status]}
+                  <View style={[styles.statusBadge, trip.status === "active" ? styles.statusInProgress : styles.statusCompleted]}>
+                    <Text style={[styles.statusText, trip.status === "active" ? styles.statusTextProgress : styles.statusTextCompleted]}>
+                      {STATUS_LABEL[trip.status] || trip.status}
                     </Text>
                   </View>
                 </View>
@@ -226,13 +232,13 @@ export function DashboardScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
 
-        {draftTrips.length > 0 && (
+        {plannedTrips.length > 0 && (
           <>
             <View style={[styles.sectionHeader, { marginTop: 22 }]}>
               <Text style={styles.sectionTitle}>Continue planning</Text>
             </View>
             <View style={styles.tripsList}>
-              {draftTrips.map((trip) => (
+              {plannedTrips.map((trip) => (
                 <TouchableOpacity
                   key={trip.id}
                   style={styles.tripCard}
@@ -250,7 +256,7 @@ export function DashboardScreen({ navigation }: Props) {
                       {trip.dayCount} Day{trip.dayCount === 1 ? "" : "s"} • {trip.placeCount} Places
                     </Text>
                     <View style={styles.draftBadge}>
-                      <Text style={styles.draftBadgeText}>Draft</Text>
+                      <Text style={styles.draftBadgeText}>Planned</Text>
                     </View>
                   </View>
                 </TouchableOpacity>

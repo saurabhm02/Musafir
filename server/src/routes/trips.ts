@@ -9,6 +9,12 @@ import {
   updateTripStop,
   deleteTripStop,
   optimizeTripDay,
+  startTrip,
+  pauseTrip,
+  resumeTrip,
+  ingestTripTelemetry,
+  completeTrip,
+  updateTripStopStatus,
 } from "../services/trips";
 import { asCreateTrip, asUpdateTrip, asAddTripStop, asUpdateTripStop } from "../lib/validate";
 
@@ -37,6 +43,38 @@ export const tripsRoutes = {
       return Response.json({ ok: true });
     }),
   },
+  "/trips/:id/start": {
+    POST: protectedRoute(async (req: Request & { params: { id: string } }, userId) => {
+      const res = await startTrip(req.params.id, userId);
+      return Response.json(res);
+    }),
+  },
+  "/trips/:id/pause": {
+    POST: protectedRoute(async (req: Request & { params: { id: string } }, userId) => {
+      const res = await pauseTrip(req.params.id, userId);
+      return Response.json(res);
+    }),
+  },
+  "/trips/:id/resume": {
+    POST: protectedRoute(async (req: Request & { params: { id: string } }, userId) => {
+      const res = await resumeTrip(req.params.id, userId);
+      return Response.json(res);
+    }),
+  },
+  "/trips/:id/track": {
+    POST: protectedRoute(async (req: Request & { params: { id: string } }, userId) => {
+      const body = ((await req.json().catch(() => ({ points: [] }))) as any) || { points: [] };
+      const res = await ingestTripTelemetry(req.params.id, userId, body);
+      return Response.json(res);
+    }),
+  },
+  "/trips/:id/complete": {
+    POST: protectedRoute(async (req: Request & { params: { id: string } }, userId) => {
+      const body = ((await req.json().catch(() => ({}))) as any) || {};
+      const res = await completeTrip(req.params.id, userId, body);
+      return Response.json(res);
+    }),
+  },
   "/trips/:id/stops": {
     POST: protectedRoute(async (req: Request & { params: { id: string } }, userId) => {
       const body = asAddTripStop(await req.json());
@@ -52,6 +90,13 @@ export const tripsRoutes = {
     }),
     DELETE: protectedRoute(async (req: Request & { params: { id: string; stopId: string } }, userId) => {
       await deleteTripStop(req.params.id, req.params.stopId, userId);
+      return Response.json({ ok: true });
+    }),
+  },
+  "/trips/:id/stops/:stopId/status": {
+    POST: protectedRoute(async (req: Request & { params: { id: string; stopId: string } }, userId) => {
+      const body = (await req.json().catch(() => ({}))) as { status: "pending" | "reached" | "skipped" };
+      await updateTripStopStatus(req.params.id, req.params.stopId, userId, body);
       return Response.json({ ok: true });
     }),
   },

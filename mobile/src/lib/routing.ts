@@ -186,3 +186,62 @@ export async function saveRouteAndCheckOverlap(route: Route, originText: string,
   });
   return matchedSegments;
 }
+
+export type RecommendedPoi = {
+  id: string;
+  name: string;
+  category: string;
+  tag: "budget_food" | "premium_experience" | "sunset_viewpoint" | "trek_trail" | "rest_stop" | "worth_the_detour" | "scenic";
+  tagLabel: string;
+  rating: number;
+  totalRatings: number;
+  photoUrl: string | null;
+  lat: number;
+  lon: number;
+  kmAlongRoute: number;
+  fractionAlongRoute: number;
+  detourDistanceKm: number;
+  detourDurationMin: number;
+  estimatedVisitDurationMin: number;
+  memoryCount: number;
+  recentMemory: { id: string; thumbnailUrl: string | null; caption: string | null } | null;
+  score: number;
+};
+
+export type CorridorSearchResponse = {
+  route: {
+    origin: string;
+    destination: string;
+    distanceKm: number;
+    durationMin: number;
+    coordinates: [number, number][];
+    matchedSegmentCount: number;
+    totalSegmentCount: number;
+    overlapPercentage: number;
+  };
+  recommendations: RecommendedPoi[];
+  groupedBuckets: {
+    worthTheDetour: RecommendedPoi[];
+    budgetFood: RecommendedPoi[];
+    sunsetViewpoint: RecommendedPoi[];
+    trekTrail: RecommendedPoi[];
+    restStop: RecommendedPoi[];
+    scenic: RecommendedPoi[];
+  };
+};
+
+export async function fetchRouteCorridorRecommendations(params: {
+  origin: { lat: number; lon: number; name?: string };
+  destination: { lat: number; lon: number; name?: string };
+  mode?: TravelMode;
+  maxDetourMinutes?: number;
+  coordinates?: [number, number][];
+  distanceKm?: number;
+  durationMin?: number;
+}): Promise<CorridorSearchResponse> {
+  return await api<CorridorSearchResponse>("/routes/corridor-search", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+}
+

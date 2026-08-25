@@ -33,6 +33,8 @@ import {
 } from "../lib/routing";
 import { setPoiStatus } from "../lib/poiStatus";
 import type { Poi } from "../lib/pois";
+import { journeyRecorder, type JourneyState } from "../lib/journeyRecorder";
+import { AddMemoryModal } from "../components/AddMemoryModal";
 
 function CloseIcon({ size = 20 }: { size?: number }) {
   return (
@@ -142,6 +144,8 @@ export function ActiveNavigationScreen({ route: screenRoute, navigation }: Props
   );
   const [isFollowingUser, setIsFollowingUser] = useState(true);
   const [isVisitedMarked, setIsVisitedMarked] = useState(false);
+  const [journeyState, setJourneyState] = useState<JourneyState | null>(null);
+  const [showAddMemory, setShowAddMemory] = useState(false);
 
   // Consecutive off-route counter to prevent false-positive GPS spikes
   const offRouteCountRef = useRef(0);
@@ -150,10 +154,20 @@ export function ActiveNavigationScreen({ route: screenRoute, navigation }: Props
 
   useEffect(() => {
     isMountedRef.current = true;
+
+    // Start Journey Recorder for this trip/POI navigation
+    const tripTitle = `${poi.name} Journey`;
+    journeyRecorder.startJourney(`nav_${poi.id}`, tripTitle).catch(() => { });
+
+    const unsubJourney = journeyRecorder.subscribe((st) => {
+      if (isMountedRef.current) setJourneyState(st);
+    });
+
     return () => {
       isMountedRef.current = false;
+      unsubJourney();
     };
-  }, []);
+  }, [poi]);
 
   // Recalculate route when off-route or missing initial route
   const recalculateRoute = useCallback(
@@ -178,7 +192,6 @@ export function ActiveNavigationScreen({ route: screenRoute, navigation }: Props
           setNavState("NAVIGATING");
         }
       } catch {
-        // Retry on next GPS update if needed
       } finally {
         reroutingRef.current = false;
       }
@@ -194,6 +207,7 @@ export function ActiveNavigationScreen({ route: screenRoute, navigation }: Props
       (loc) => {
         if (!isMountedRef.current) return;
         setCurrentLocation(loc);
+        journeyRecorder.recordLocation(loc);
 
         // If no active route yet, fetch initial route from current GPS
         if (!activeRoute && !reroutingRef.current) {
@@ -209,6 +223,9 @@ export function ActiveNavigationScreen({ route: screenRoute, navigation }: Props
           setNavState("ARRIVED");
           setRemainingDistanceM(0);
           setRemainingDurationSec(0);
+          setPoiStatus(poi.id, "visited").catch(() => { });
+          setIsVisitedMarked(true);
+          journeyRecorder.finishJourney().catch(() => { });
           return;
         } else if (distToDestM <= 120) {
           setNavState("ARRIVING");
@@ -322,9 +339,10 @@ export function ActiveNavigationScreen({ route: screenRoute, navigation }: Props
     setShowEndNavModal(true);
   };
 
-  const handleEndNavigationConfirmed = () => {
+  const handleEndNavigationConfirmed = async () => {
     setShowEndNavModal(false);
     setNavState("COMPLETED");
+    await journeyRecorder.finishJourney().catch(() => { });
     navigation.goBack();
   };
 
@@ -332,7 +350,7 @@ export function ActiveNavigationScreen({ route: screenRoute, navigation }: Props
     setIsVisitedMarked(true);
     try {
       await setPoiStatus(poi.id, "visited");
-    } catch {}
+    } catch { }
   };
 
   const handleFinishArrival = () => {
@@ -349,7 +367,7 @@ export function ActiveNavigationScreen({ route: screenRoute, navigation }: Props
         <Map3D
           route={activeRoute}
           pois={[poi]}
-          onPoiPress={() => {}}
+          onPoiPress={() => { }}
           navMode
           userNavLocation={currentLocation}
           isFollowingUser={isFollowingUser}
@@ -504,24 +522,62 @@ export function ActiveNavigationScreen({ route: screenRoute, navigation }: Props
               Great job! You have reached your destination.
             </Text>
 
+            {/* Journey Recorded Statistics Grid */}
+            <View style={styles.journeyStatsGrid}>
+              <View style={styles.journeyStatItem}>
+                <Text style={styles.journeyStatVal}>
+                  {journeyState ? (journeyState.distanceMeters / 1000).toFixed(1) : "0.0"} km
+                </Text>
+                <Text style={styles.journeyStatLabel}>Recorded</Text>
+              </View>
+              <View style={styles.journeyStatItem}>
+                <Text style={styles.journeyStatVal}>
+                  {journeyState ? Math.max(1, Math.round(journeyState.movingSeconds / 60)) : 1} min
+                </Text>
+                <Text style={styles.journeyStatLabel}>Moving Time</Text>
+              </View>
+              <View style={styles.journeyStatItem}>
+                <Text style={styles.journeyStatVal}>
+                  +{journeyState ? Math.round(journeyState.elevationGainMeters) : 0} m
+                </Text>
+                <Text style={styles.journeyStatLabel}>Elevation</Text>
+              </View>
+              <View style={styles.journeyStatItem}>
+                <Text style={styles.journeyStatVal}>
+                  {journeyState?.maxSpeedKmh || 0} km/h
+                </Text>
+                <Text style={styles.journeyStatLabel}>Top Speed</Text>
+              </View>
+            </View>
+
             <View style={styles.arrivalActionsRow}>
               <TouchableOpacity
-                style={[styles.arrivalMarkBtn, isVisitedMarked && styles.arrivalMarkBtnActive]}
-                onPress={handleMarkVisited}
+                style={styles.addMemoryJourneyBtn}
+                onPress={() => setShowAddMemory(true)}
                 activeOpacity={0.85}
               >
-                <Text style={[styles.arrivalMarkBtnText, isVisitedMarked && { color: "#16A34A" }]}>
-                  {isVisitedMarked ? "✓ Marked as Visited" : "Mark as Visited"}
-                </Text>
+                <Text style={styles.addMemoryJourneyText}>📸 Add Trip Photo</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.arrivalDoneBtn} onPress={handleFinishArrival} activeOpacity={0.88}>
-                <Text style={styles.arrivalDoneBtnText}>Done</Text>
+                <Text style={styles.arrivalDoneBtnText}>View Place Details</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+
+      {/* Add Memory Modal directly attached to this destination */}
+      <AddMemoryModal
+        visible={showAddMemory}
+        poiId={poi.id}
+        placeName={poi.name}
+        onClose={() => setShowAddMemory(false)}
+        onSuccess={() => {
+          setShowAddMemory(false);
+          Alert.alert("Memory Saved!", "Your journey photo was pinned to this trip and place.");
+        }}
+      />
     </View>
   );
 }
@@ -886,5 +942,45 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     fontWeight: "800",
     color: "#FFFFFF",
+  },
+  journeyStatsGrid: {
+    flexDirection: "row",
+    backgroundColor: "#F4F4F5",
+    borderRadius: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    marginBottom: 16,
+    width: "100%",
+    justifyContent: "space-around",
+  },
+  journeyStatItem: {
+    alignItems: "center",
+  },
+  journeyStatVal: {
+    fontSize: 14.5,
+    fontWeight: "800",
+    color: "#18181B",
+  },
+  journeyStatLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#71717A",
+    textTransform: "uppercase",
+    marginTop: 2,
+  },
+  addMemoryJourneyBtn: {
+    width: "100%",
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1.2,
+    borderColor: "#BFDBFE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addMemoryJourneyText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#2563EB",
   },
 });
