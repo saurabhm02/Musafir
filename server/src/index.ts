@@ -13,6 +13,7 @@ import { collectionsRoutes } from "./routes/collections";
 import { notificationsRoutes } from "./routes/notifications";
 import { adminMemoriesRoutes } from "./routes/adminMemories";
 import { corridorSearchRoutes } from "./routes/corridorSearch";
+import { profileRoutes } from "./routes/profile";
 
 Bun.serve({
   port: 3001,
@@ -21,6 +22,7 @@ Bun.serve({
     ...healthRoutes,
     ...authRoutes,
     ...meRoutes,
+    ...profileRoutes,
     ...poisRoutes,
     ...memoriesRoutes,
     ...routeSearchRoutes,

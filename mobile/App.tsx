@@ -22,6 +22,7 @@ import { TripNavigationScreen } from "./src/screens/TripNavigationScreen";
 import { TripReviewScreen } from "./src/screens/TripReviewScreen";
 import { ActiveNavigationScreen } from "./src/screens/ActiveNavigationScreen";
 import { AddPOIScreen } from "./src/screens/AddPOIScreen";
+import { ProfileScreen } from "./src/screens/ProfileScreen";
 import { supabase } from "./src/lib/supabase";
 import { colors } from "./src/theme";
 import type { RootStackParamList } from "./src/navigation";
@@ -69,6 +70,7 @@ export default function App() {
             <Stack.Screen name="TripReview" component={TripReviewScreen} />
             <Stack.Screen name="ActiveNavigation" component={ActiveNavigationScreen} />
             <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen name="AddPOI" component={AddPOIScreen} options={{ presentation: "modal" }} />
           </Stack.Navigator>
         </NavigationContainer>

@@ -365,7 +365,7 @@ export function HomeScreen({ navigation }: Props) {
   const handleTabPress = (tab: TabType) => {
     if (tab === "Home") navigation.navigate("Dashboard");
     else if (tab === "Trips") navigation.navigate("TripTracking", undefined);
-    else if (tab === "Profile") navigation.navigate("Auth");
+    else if (tab === "Profile") navigation.navigate("Profile");
   };
 
   const toggleSave = async (poi: Poi) => {

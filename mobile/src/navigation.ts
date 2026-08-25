@@ -18,6 +18,7 @@ export type RootStackParamList = {
   TripReview: { poi: Poi; route?: Route };
   ActiveNavigation: { poi: Poi; route?: Route };
   AddPOI: { lat: number; lon: number };
+  Profile: undefined;
 };
 
 

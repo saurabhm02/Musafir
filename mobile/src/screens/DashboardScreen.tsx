@@ -104,7 +104,7 @@ export function DashboardScreen({ navigation }: Props) {
   function handleTabPress(tab: TabType) {
     if (tab === "Explore") navigation.navigate("Home");
     else if (tab === "Trips") navigation.navigate("TripTracking", undefined);
-    else if (tab === "Profile") navigation.navigate("Auth");
+    else if (tab === "Profile") navigation.navigate("Profile");
   }
 
   const activeTrips = trips.filter((t) => t.status !== "planned");
