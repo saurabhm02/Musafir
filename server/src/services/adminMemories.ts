@@ -1,5 +1,6 @@
 import { db } from "../lib/db";
 import { deleteObjects } from "./storage";
+import { dispatchNotification } from "./notifications";
 
 export type AdminMemoryItem = {
   id: string;
@@ -218,6 +219,17 @@ export async function approveMemory(memoryId: string): Promise<boolean> {
     },
   });
 
+  if (memory.user_id) {
+    dispatchNotification({
+      userId: memory.user_id,
+      type: "memory_moderated",
+      title: "Memory Featured! 📸",
+      subtitle: "Your travel memory has been approved and published to the explore feed.",
+      data: { entityType: "memory", entityId: memoryId },
+      idempotencyKey: `mem_approved_${memoryId}`,
+    }).catch(() => {});
+  }
+
   return true;
 }
 
@@ -237,6 +249,17 @@ export async function rejectMemory(memoryId: string, reason?: string): Promise<b
       updated_at: new Date(),
     },
   });
+
+  if (memory.user_id) {
+    dispatchNotification({
+      userId: memory.user_id,
+      type: "memory_removed",
+      title: "Memory Review Notice",
+      subtitle: reason ? `Your memory was rejected: ${reason}` : "Your photo did not meet community guidelines.",
+      data: { entityType: "memory", entityId: memoryId },
+      idempotencyKey: `mem_rejected_${memoryId}`,
+    }).catch(() => {});
+  }
 
   return true;
 }

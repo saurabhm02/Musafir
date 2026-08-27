@@ -19,6 +19,7 @@ import {
   markAllNotificationsAsRead,
   type AppNotification,
 } from "../lib/notifications";
+import { fetchPoiDetails } from "../lib/pois";
 import { BottomTabBar, type TabType } from "../components/BottomTabBar";
 
 function ArrowBackIcon({ size = 22 }: { size?: number }) {
@@ -98,12 +99,11 @@ function NotificationIcon({ type }: { type: AppNotification["type"] }) {
           </Svg>
         </View>
       );
-    case "map":
     default:
       return (
-        <View style={[styles.iconWrap, { backgroundColor: "#DCFCE7" }]}>
+        <View style={[styles.iconWrap, { backgroundColor: "#F3F4F6" }]}>
           <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-            <Path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zm7-4v16m8-12v16" stroke="#16A34A" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            <Circle cx="12" cy="12" r="9" stroke="#6B7280" strokeWidth={2} />
           </Svg>
         </View>
       );
@@ -119,8 +119,8 @@ export function NotificationsScreen({ navigation }: Props) {
   const loadNotifications = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await fetchNotifications();
-      setNotifications(list);
+      const res = await fetchNotifications();
+      setNotifications(res.items);
     } catch {
       setNotifications([]);
     } finally {
@@ -134,12 +134,31 @@ export function NotificationsScreen({ navigation }: Props) {
     }, [loadNotifications]),
   );
 
-  const handleMarkRead = async (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
-    try {
-      await markNotificationAsRead(id);
-    } catch {
-      loadNotifications();
+  const handleNotificationPress = async (n: AppNotification) => {
+    if (!n.is_read) {
+      setNotifications((prev) => prev.map((item) => (item.id === n.id ? { ...item, is_read: true } : item)));
+      markNotificationAsRead(n.id).catch(() => {});
+    }
+
+    const data = n.data || {};
+    const entityType = data.entityType;
+    const entityId = data.entityId || n.link_id;
+
+    if (entityType === "trip" && entityId) {
+      navigation.navigate("TripTracking", { tripId: entityId });
+    } else if (entityType === "achievement") {
+      navigation.navigate("Profile");
+    } else if (entityType === "collection") {
+      navigation.navigate("Collections");
+    } else if (entityType === "poi" && entityId) {
+      try {
+        const poi = await fetchPoiDetails(entityId);
+        if (poi) navigation.navigate("PlaceDetails", { poi: poi as any });
+      } catch {}
+    } else if (n.type === "saved") {
+      navigation.navigate("SavedSpots");
+    } else if (n.type === "visited") {
+      navigation.navigate("Visited");
     }
   };
 
@@ -156,7 +175,7 @@ export function NotificationsScreen({ navigation }: Props) {
     if (tab === "Home") navigation.navigate("Dashboard");
     else if (tab === "Explore") navigation.navigate("Home");
     else if (tab === "Trips") navigation.navigate("TripTracking", undefined);
-    else if (tab === "Profile") navigation.navigate("Auth");
+    else if (tab === "Profile") navigation.navigate("Profile");
   };
 
   const todayNotifs = notifications.filter((n) => n.group === "today");
@@ -193,7 +212,7 @@ export function NotificationsScreen({ navigation }: Props) {
           </View>
           <Text style={styles.emptyTitle}>No notifications yet</Text>
           <Text style={styles.emptyDesc}>
-            We'll notify you here about your upcoming trips, weather and road updates, and trending spots across India.
+            We'll notify you here about your journey milestones, badge unlocks, and memories.
           </Text>
           <TouchableOpacity
             style={styles.emptyCTA}
@@ -217,22 +236,22 @@ export function NotificationsScreen({ navigation }: Props) {
                   <TouchableOpacity
                     key={n.id}
                     style={[styles.notifRow, !n.is_read && styles.notifRowUnread]}
-                    onPress={() => handleMarkRead(n.id)}
-                    activeOpacity={0.85}
+                    onPress={() => handleNotificationPress(n)}
+                    activeOpacity={0.75}
                   >
                     <NotificationIcon type={n.type} />
-                    <View style={styles.notifBody}>
-                      <Text style={[styles.notifTitle, !n.is_read && styles.notifTitleUnread]} numberOfLines={1}>
-                        {n.title}
-                      </Text>
-                      <Text style={styles.notifSub} numberOfLines={1}>
+                    <View style={styles.notifContent}>
+                      <View style={styles.titleLine}>
+                        <Text style={styles.notifTitle} numberOfLines={1}>
+                          {n.title}
+                        </Text>
+                        <Text style={styles.timeLabel}>{n.time_label}</Text>
+                      </View>
+                      <Text style={styles.notifSubtitle} numberOfLines={2}>
                         {n.subtitle}
                       </Text>
                     </View>
-                    <View style={styles.notifRight}>
-                      <Text style={styles.notifTime}>{n.time_label}</Text>
-                      {!n.is_read && <View style={styles.unreadDot} />}
-                    </View>
+                    {!n.is_read && <View style={styles.unreadDot} />}
                   </TouchableOpacity>
                 ))}
               </View>
@@ -247,22 +266,22 @@ export function NotificationsScreen({ navigation }: Props) {
                   <TouchableOpacity
                     key={n.id}
                     style={[styles.notifRow, !n.is_read && styles.notifRowUnread]}
-                    onPress={() => handleMarkRead(n.id)}
-                    activeOpacity={0.85}
+                    onPress={() => handleNotificationPress(n)}
+                    activeOpacity={0.75}
                   >
                     <NotificationIcon type={n.type} />
-                    <View style={styles.notifBody}>
-                      <Text style={[styles.notifTitle, !n.is_read && styles.notifTitleUnread]} numberOfLines={1}>
-                        {n.title}
-                      </Text>
-                      <Text style={styles.notifSub} numberOfLines={1}>
+                    <View style={styles.notifContent}>
+                      <View style={styles.titleLine}>
+                        <Text style={styles.notifTitle} numberOfLines={1}>
+                          {n.title}
+                        </Text>
+                        <Text style={styles.timeLabel}>{n.time_label}</Text>
+                      </View>
+                      <Text style={styles.notifSubtitle} numberOfLines={2}>
                         {n.subtitle}
                       </Text>
                     </View>
-                    <View style={styles.notifRight}>
-                      <Text style={styles.notifTime}>{n.time_label}</Text>
-                      {!n.is_read && <View style={styles.unreadDot} />}
-                    </View>
+                    {!n.is_read && <View style={styles.unreadDot} />}
                   </TouchableOpacity>
                 ))}
               </View>
@@ -271,86 +290,181 @@ export function NotificationsScreen({ navigation }: Props) {
         </ScrollView>
       )}
 
-      <BottomTabBar activeTab="Home" onTabPress={handleTabPress} onCenterPress={() => navigation.navigate("Home")} />
+      <BottomTabBar activeTab="Home" onTabPress={handleTabPress} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FAFAF8" },
+  container: {
+    flex: 1,
+    backgroundColor: "#FAFAF8",
+  },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 6,
-    paddingBottom: 10,
+    paddingTop: 8,
+    paddingBottom: 14,
   },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 24, fontWeight: "800", color: "#18181B", letterSpacing: -0.4 },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.2,
+    borderColor: "#E5E7EB",
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#18181B",
+    letterSpacing: -0.4,
+  },
   markAllBtn: {
     width: 38,
     height: 38,
     borderRadius: 14,
     backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1.2,
     borderColor: "#E5E7EB",
+  },
+  centerBox: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    gap: 12,
   },
-  listScroll: { flex: 1 },
-  listContent: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 100, gap: 20 },
-  sectionGroup: { gap: 8 },
-  sectionTitle: { fontSize: 13, fontWeight: "700", color: "#71717A", letterSpacing: 0.2 },
-  groupCards: { gap: 8 },
-  notifRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#F4F4F5",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
+  loadingText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#71717A",
   },
-  notifRowUnread: {
-    borderColor: "#E0E7FF",
-    backgroundColor: "#FFFFFF",
-  },
-  iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+  emptyBox: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    paddingHorizontal: 36,
   },
-  notifBody: { flex: 1, justifyContent: "center" },
-  notifTitle: { fontSize: 14.5, fontWeight: "600", color: "#374151" },
-  notifTitleUnread: { fontWeight: "800", color: "#18181B" },
-  notifSub: { fontSize: 12.5, color: "#71717A", marginTop: 2 },
-  notifRight: { alignItems: "flex-end", gap: 6, paddingLeft: 8 },
-  notifTime: { fontSize: 11, fontWeight: "600", color: "#9CA3AF" },
-  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#2563EB" },
-  centerBox: { flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: 60 },
-  loadingText: { marginTop: 12, fontSize: 13.5, color: "#71717A", fontWeight: "500" },
-  emptyBox: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, paddingBottom: 60 },
   emptyIconCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: "#FFEDD5",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
   },
-  emptyTitle: { fontSize: 18, fontWeight: "800", color: "#18181B", marginBottom: 6 },
-  emptyDesc: { fontSize: 13.5, color: "#71717A", textAlign: "center", lineHeight: 19, marginBottom: 20 },
-  emptyCTA: { backgroundColor: "#EA580C", borderRadius: 14, paddingHorizontal: 22, paddingVertical: 12 },
-  emptyCTAText: { fontSize: 14, fontWeight: "700", color: "#FFFFFF" },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#18181B",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  emptyDesc: {
+    fontSize: 13.5,
+    color: "#71717A",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  emptyCTA: {
+    backgroundColor: "#18181B",
+    borderRadius: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  emptyCTAText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  listScroll: {
+    flex: 1,
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 110,
+    gap: 20,
+  },
+  sectionGroup: {
+    gap: 10,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#71717A",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginLeft: 4,
+  },
+  groupCards: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    borderWidth: 1.2,
+    borderColor: "#E5E7EB",
+    overflow: "hidden",
+  },
+  notifRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F4F4F5",
+    gap: 14,
+  },
+  notifRowUnread: {
+    backgroundColor: "#FFFBF7",
+  },
+  iconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notifContent: {
+    flex: 1,
+  },
+  titleLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 3,
+  },
+  notifTitle: {
+    fontSize: 14.5,
+    fontWeight: "700",
+    color: "#18181B",
+    flex: 1,
+    marginRight: 8,
+  },
+  timeLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#9CA3AF",
+  },
+  notifSubtitle: {
+    fontSize: 12.5,
+    color: "#71717A",
+    lineHeight: 17,
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#EA580C",
+  },
 });

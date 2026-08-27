@@ -7,6 +7,7 @@ export type Collection = {
   description: string | null;
   cover_url: string | null;
   poi_count: number;
+  is_public: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -15,81 +16,60 @@ export type CollectionDetail = Collection & {
   pois: PoiSummary[];
 };
 
-type StoredCollection = {
-  id: string;
-  name: string;
-  description: string | null;
-  cover_url: string | null;
-  poi_ids: string[];
-  created_at: string;
-  updated_at: string;
-};
-
-async function getUserCollections(userId: string): Promise<StoredCollection[]> {
-  const user = await db.users.findUnique({
-    where: { id: userId },
-    select: { preferences: true },
-  });
-
-  const prefs = (user?.preferences as any) || {};
-  if (Array.isArray(prefs.collections)) {
-    return prefs.collections;
-  }
-
-  return [];
-}
-
-async function saveUserCollections(userId: string, collections: StoredCollection[]): Promise<void> {
-  const user = await db.users.findUnique({
-    where: { id: userId },
-    select: { preferences: true },
-  });
-
-  const prefs = (user?.preferences as any) || {};
-  await db.users.update({
-    where: { id: userId },
-    data: {
-      preferences: {
-        ...prefs,
-        collections,
-      },
-    },
-  });
-}
-
 export async function listCollections(userId: string): Promise<Collection[]> {
-  const stored = await getUserCollections(userId);
-  return stored.map((c) => ({
+  const rows = await db.collections.findMany({
+    where: { user_id: userId },
+    include: {
+      _count: { select: { collection_pois: true } },
+    },
+    orderBy: { updated_at: "desc" },
+  });
+
+  return rows.map((c) => ({
     id: c.id,
     name: c.name,
     description: c.description,
     cover_url: c.cover_url,
-    poi_count: c.poi_ids.length,
-    created_at: c.created_at,
-    updated_at: c.updated_at,
+    poi_count: c._count.collection_pois,
+    is_public: c.is_public,
+    created_at: c.created_at.toISOString(),
+    updated_at: c.updated_at.toISOString(),
   }));
 }
 
-export async function getCollectionDetail(userId: string, collectionId: string): Promise<CollectionDetail | null> {
-  const stored = await getUserCollections(userId);
-  const col = stored.find((c) => c.id === collectionId);
+export async function getCollectionDetail(
+  userId: string,
+  collectionId: string,
+  limit: number = 50,
+): Promise<CollectionDetail | null> {
+  const col = await db.collections.findFirst({
+    where: { id: collectionId, user_id: userId },
+    include: {
+      collection_pois: {
+        orderBy: { sort_order: "asc" },
+        take: limit,
+        select: { poi_id: true },
+      },
+      _count: { select: { collection_pois: true } },
+    },
+  });
+
   if (!col) return null;
 
+  const poiIds = col.collection_pois.map((cp) => cp.poi_id);
   let pois: PoiSummary[] = [];
-  if (col.poi_ids.length > 0) {
-    const rawPois = await db.$queryRawUnsafe<any[]>(
-      `
+
+  if (poiIds.length > 0) {
+    const rawPois = await db.$queryRaw<any[]>`
       SELECT id, name, description, category, is_verified,
         st_y(location::geometry) as lat, st_x(location::geometry) as lon,
         avg_rating, total_ratings, best_time
       FROM pois
-      WHERE id = ANY($1::uuid[])
-    `,
-      col.poi_ids,
-    );
+      WHERE id = ANY(${poiIds}::uuid[])
+    `;
 
     const photos = await db.poi_photos.findMany({
-      where: { poi_id: { in: col.poi_ids } },
+      where: { poi_id: { in: poiIds } },
       select: { poi_id: true, url: true },
       orderBy: { created_at: "asc" },
     });
@@ -99,10 +79,24 @@ export async function getCollectionDetail(userId: string, collectionId: string):
       if (p.poi_id && !coverMap.has(p.poi_id)) coverMap.set(p.poi_id, p.url);
     }
 
-    pois = rawPois.map((p) => ({
-      ...p,
-      photo_url: coverMap.get(p.id) ?? null,
-    }));
+    const poiMap = new Map<string, any>(rawPois.map((p) => [p.id, p]));
+    // Preserve ordered sequence
+    pois = poiIds
+      .map((id) => poiMap.get(id))
+      .filter(Boolean)
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        category: p.category,
+        is_verified: !!p.is_verified,
+        lat: Number(p.lat),
+        lon: Number(p.lon),
+        avg_rating: p.avg_rating ? Number(p.avg_rating) : null,
+        total_ratings: p.total_ratings ? Number(p.total_ratings) : null,
+        best_time: p.best_time,
+        photo_url: coverMap.get(p.id) ?? null,
+      }));
   }
 
   return {
@@ -110,98 +104,162 @@ export async function getCollectionDetail(userId: string, collectionId: string):
     name: col.name,
     description: col.description,
     cover_url: col.cover_url || (pois[0]?.photo_url ?? null),
-    poi_count: col.poi_ids.length,
-    created_at: col.created_at,
-    updated_at: col.updated_at,
+    poi_count: col._count.collection_pois,
+    is_public: col.is_public,
+    created_at: col.created_at.toISOString(),
+    updated_at: col.updated_at.toISOString(),
     pois,
   };
 }
 
 export async function createCollection(
   userId: string,
-  input: { name: string; description?: string; cover_url?: string },
+  input: { name: string; description?: string; cover_url?: string; is_public?: boolean },
 ): Promise<Collection> {
-  const stored = await getUserCollections(userId);
-  const newCol: StoredCollection = {
-    id: `col-${Date.now()}`,
-    name: input.name.trim(),
-    description: input.description?.trim() || null,
-    cover_url: input.cover_url || null,
-    poi_ids: [],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-
-  stored.unshift(newCol);
-  await saveUserCollections(userId, stored);
+  const created = await db.collections.create({
+    data: {
+      user_id: userId,
+      name: input.name.trim(),
+      description: input.description?.trim() || null,
+      cover_url: input.cover_url?.trim() || null,
+      is_public: !!input.is_public,
+    },
+  });
 
   return {
-    id: newCol.id,
-    name: newCol.name,
-    description: newCol.description,
-    cover_url: newCol.cover_url,
+    id: created.id,
+    name: created.name,
+    description: created.description,
+    cover_url: created.cover_url,
     poi_count: 0,
-    created_at: newCol.created_at,
-    updated_at: newCol.updated_at,
+    is_public: created.is_public,
+    created_at: created.created_at.toISOString(),
+    updated_at: created.updated_at.toISOString(),
   };
 }
 
 export async function updateCollection(
   userId: string,
   collectionId: string,
-  input: { name?: string; description?: string; cover_url?: string },
+  input: { name?: string; description?: string; cover_url?: string; is_public?: boolean },
 ): Promise<Collection | null> {
-  const stored = await getUserCollections(userId);
-  const idx = stored.findIndex((c) => c.id === collectionId);
-  if (idx === -1) return null;
+  const existing = await db.collections.findFirst({
+    where: { id: collectionId, user_id: userId },
+  });
+  if (!existing) return null;
 
-  const target = stored[idx];
-  if (!target) return null;
+  const data: Record<string, any> = { updated_at: new Date() };
+  if (input.name !== undefined) data.name = input.name.trim();
+  if (input.description !== undefined) data.description = input.description?.trim() || null;
+  if (input.cover_url !== undefined) data.cover_url = input.cover_url?.trim() || null;
+  if (input.is_public !== undefined) data.is_public = input.is_public;
 
-  if (input.name) target.name = input.name.trim();
-  if (input.description !== undefined) target.description = input.description?.trim() || null;
-  if (input.cover_url) target.cover_url = input.cover_url;
-  target.updated_at = new Date().toISOString();
-
-  await saveUserCollections(userId, stored);
+  const updated = await db.collections.update({
+    where: { id: collectionId },
+    data,
+    include: { _count: { select: { collection_pois: true } } },
+  });
 
   return {
-    id: target.id,
-    name: target.name,
-    description: target.description,
-    cover_url: target.cover_url,
-    poi_count: target.poi_ids.length,
-    created_at: target.created_at,
-    updated_at: target.updated_at,
+    id: updated.id,
+    name: updated.name,
+    description: updated.description,
+    cover_url: updated.cover_url,
+    poi_count: updated._count.collection_pois,
+    is_public: updated.is_public,
+    created_at: updated.created_at.toISOString(),
+    updated_at: updated.updated_at.toISOString(),
   };
 }
 
 export async function deleteCollection(userId: string, collectionId: string): Promise<boolean> {
-  const stored = await getUserCollections(userId);
-  const next = stored.filter((c) => c.id !== collectionId);
-  if (next.length === stored.length) return false;
+  const existing = await db.collections.findFirst({
+    where: { id: collectionId, user_id: userId },
+  });
+  if (!existing) return false;
 
-  await saveUserCollections(userId, next);
+  await db.collections.delete({ where: { id: collectionId } });
   return true;
 }
 
-export async function togglePoiInCollection(
+export async function addPoiToCollection(
   userId: string,
   collectionId: string,
   poiId: string,
-): Promise<{ in_collection: boolean; poi_count: number }> {
-  const stored = await getUserCollections(userId);
-  const col = stored.find((c) => c.id === collectionId);
-  if (!col) throw new Error("Collection not found");
+): Promise<{ added: boolean }> {
+  const col = await db.collections.findFirst({
+    where: { id: collectionId, user_id: userId },
+  });
+  if (!col) return { added: false };
 
-  const exists = col.poi_ids.includes(poiId);
-  if (exists) {
-    col.poi_ids = col.poi_ids.filter((id) => id !== poiId);
-  } else {
-    col.poi_ids.push(poiId);
-  }
-  col.updated_at = new Date().toISOString();
+  const maxOrder = await db.collection_pois.aggregate({
+    where: { collection_id: collectionId },
+    _max: { sort_order: true },
+  });
 
-  await saveUserCollections(userId, stored);
-  return { in_collection: !exists, poi_count: col.poi_ids.length };
+  await db.collection_pois.upsert({
+    where: { collection_id_poi_id: { collection_id: collectionId, poi_id: poiId } },
+    create: {
+      collection_id: collectionId,
+      poi_id: poiId,
+      sort_order: (maxOrder._max.sort_order ?? -1) + 1,
+    },
+    update: {},
+  });
+
+  await db.collections.update({
+    where: { id: collectionId },
+    data: { updated_at: new Date() },
+  });
+
+  return { added: true };
+}
+
+export async function removePoiFromCollection(
+  userId: string,
+  collectionId: string,
+  poiId: string,
+): Promise<{ removed: boolean }> {
+  const col = await db.collections.findFirst({
+    where: { id: collectionId, user_id: userId },
+  });
+  if (!col) return { removed: false };
+
+  await db.collection_pois.deleteMany({
+    where: { collection_id: collectionId, poi_id: poiId },
+  });
+
+  await db.collections.update({
+    where: { id: collectionId },
+    data: { updated_at: new Date() },
+  });
+
+  return { removed: true };
+}
+
+export async function reorderCollectionPois(
+  userId: string,
+  collectionId: string,
+  poiIds: string[],
+): Promise<boolean> {
+  const col = await db.collections.findFirst({
+    where: { id: collectionId, user_id: userId },
+  });
+  if (!col) return false;
+
+  await db.$transaction(
+    poiIds.map((poiId, idx) =>
+      db.collection_pois.updateMany({
+        where: { collection_id: collectionId, poi_id: poiId },
+        data: { sort_order: idx },
+      }),
+    ),
+  );
+
+  await db.collections.update({
+    where: { id: collectionId },
+    data: { updated_at: new Date() },
+  });
+
+  return true;
 }

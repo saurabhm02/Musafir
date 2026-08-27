@@ -1,4 +1,5 @@
 import { db } from "../lib/db";
+import { dispatchNotification } from "./notifications";
 
 export type TravelStats = {
   totalDistanceKm: number;
@@ -52,6 +53,7 @@ export type UserProfileResponse = {
     username: string | null;
     fullName: string | null;
     avatarUrl: string | null;
+    bannerUrl: string | null;
     bio: string | null;
     homeCity: string | null;
     subscriptionTier: string;
@@ -198,69 +200,94 @@ function evaluateAchievements(
 }
 
 export async function getUserProfile(userId: string): Promise<UserProfileResponse> {
-  // 1. Fetch User Record
-  const user = await db.users.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      email: true,
-      username: true,
-      full_name: true,
-      avatar_url: true,
-      bio: true,
-      home_city: true,
-      subscription_tier: true,
-      preferences: true,
-      created_at: true,
-    },
-  });
+  // 1. Run Core Independent Queries in Parallel
+  const [user, statsRows, existingAchRows, rawTrips, rawMemories, collectionsCount] = await Promise.all([
+    db.users.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        full_name: true,
+        avatar_url: true,
+        bio: true,
+        home_city: true,
+        subscription_tier: true,
+        preferences: true,
+        created_at: true,
+      },
+    }),
+    db.$queryRaw<
+      {
+        total_distance_km: number | null;
+        total_trips: number | null;
+        places_visited: bigint | number;
+        states_explored: bigint | number;
+        cities_visited: bigint | number;
+        photos_and_memories: bigint | number;
+        longest_trip_km: number | null;
+        total_duration_min: number | null;
+        saved_places_count: bigint | number;
+        want_to_go_count: bigint | number;
+      }[]
+    >`
+      SELECT
+        COALESCE(u.total_distance_km, (SELECT COALESCE(SUM(actual_distance_km), 0) FROM trips WHERE user_id = ${userId}::uuid AND status = 'completed')) as total_distance_km,
+        COALESCE(u.total_trips, (SELECT COUNT(*) FROM trips WHERE user_id = ${userId}::uuid AND status = 'completed'))::int as total_trips,
+        (SELECT COUNT(DISTINCT poi_id) FROM poi_status WHERE user_id = ${userId}::uuid AND status = 'visited')::int as places_visited,
+        (
+          SELECT COUNT(DISTINCT pm.state)
+          FROM poi_status ps
+          JOIN pois p ON p.id = ps.poi_id
+          JOIN poi_metadata pm ON pm.poi_id = p.id
+          WHERE ps.user_id = ${userId}::uuid AND ps.status = 'visited' AND pm.state IS NOT NULL AND TRIM(pm.state) != ''
+        )::int as states_explored,
+        (
+          SELECT COUNT(DISTINCT COALESCE(NULLIF(TRIM(pm.city), ''), NULLIF(TRIM(pm.district), '')))
+          FROM poi_status ps
+          JOIN pois p ON p.id = ps.poi_id
+          JOIN poi_metadata pm ON pm.poi_id = p.id
+          WHERE ps.user_id = ${userId}::uuid AND ps.status = 'visited' AND (pm.city IS NOT NULL OR pm.district IS NOT NULL)
+        )::int as cities_visited,
+        (SELECT COUNT(*) FROM memories WHERE user_id = ${userId}::uuid AND deleted_at IS NULL)::int as photos_and_memories,
+        (SELECT COALESCE(MAX(actual_distance_km), 0) FROM trips WHERE user_id = ${userId}::uuid AND status = 'completed') as longest_trip_km,
+        (SELECT COALESCE(SUM(actual_duration_min), 0) FROM trips WHERE user_id = ${userId}::uuid AND status = 'completed') as total_duration_min,
+        (SELECT COUNT(*) FROM poi_status WHERE user_id = ${userId}::uuid AND status = 'saved')::int as saved_places_count,
+        (SELECT COUNT(*) FROM poi_status WHERE user_id = ${userId}::uuid AND status = 'want_to_go')::int as want_to_go_count
+      FROM users u
+      WHERE u.id = ${userId}::uuid
+    `,
+    db.user_achievements.findMany({
+      where: { user_id: userId },
+      select: { badge_key: true, unlocked_at: true },
+    }),
+    db.trips.findMany({
+      where: { user_id: userId },
+      orderBy: { completed_at: "desc" },
+      take: 3,
+    }),
+    db.memories.findMany({
+      where: { user_id: userId, deleted_at: null },
+      orderBy: { created_at: "desc" },
+      take: 6,
+      select: {
+        id: true,
+        photo_url: true,
+        thumbnail_url: true,
+        caption: true,
+        created_at: true,
+      },
+    }),
+    db.collections.count({
+      where: { user_id: userId },
+    }),
+  ]);
 
   if (!user) {
     throw Object.assign(new Error("User profile not found"), { status: 404 });
   }
 
-  // 2. High Performance Single-Pass Aggregation Query for Stats & Counts
-  const [statsRow] = await db.$queryRaw<
-    {
-      total_distance_km: number | null;
-      total_trips: number | null;
-      places_visited: bigint | number;
-      states_explored: bigint | number;
-      cities_visited: bigint | number;
-      photos_and_memories: bigint | number;
-      longest_trip_km: number | null;
-      total_duration_min: number | null;
-      saved_places_count: bigint | number;
-      want_to_go_count: bigint | number;
-    }[]
-  >`
-    SELECT
-      COALESCE(u.total_distance_km, (SELECT COALESCE(SUM(actual_distance_km), 0) FROM trips WHERE user_id = ${userId}::uuid AND status = 'completed')) as total_distance_km,
-      COALESCE(u.total_trips, (SELECT COUNT(*) FROM trips WHERE user_id = ${userId}::uuid AND status = 'completed'))::int as total_trips,
-      (SELECT COUNT(DISTINCT poi_id) FROM poi_status WHERE user_id = ${userId}::uuid AND status = 'visited')::int as places_visited,
-      (
-        SELECT COUNT(DISTINCT pm.state)
-        FROM poi_status ps
-        JOIN pois p ON p.id = ps.poi_id
-        JOIN poi_metadata pm ON pm.poi_id = p.id
-        WHERE ps.user_id = ${userId}::uuid AND ps.status = 'visited' AND pm.state IS NOT NULL AND TRIM(pm.state) != ''
-      )::int as states_explored,
-      (
-        SELECT COUNT(DISTINCT COALESCE(NULLIF(TRIM(pm.city), ''), NULLIF(TRIM(pm.district), '')))
-        FROM poi_status ps
-        JOIN pois p ON p.id = ps.poi_id
-        JOIN poi_metadata pm ON pm.poi_id = p.id
-        WHERE ps.user_id = ${userId}::uuid AND ps.status = 'visited' AND (pm.city IS NOT NULL OR pm.district IS NOT NULL)
-      )::int as cities_visited,
-      (SELECT COUNT(*) FROM memories WHERE user_id = ${userId}::uuid AND deleted_at IS NULL)::int as photos_and_memories,
-      (SELECT COALESCE(MAX(actual_distance_km), 0) FROM trips WHERE user_id = ${userId}::uuid AND status = 'completed') as longest_trip_km,
-      (SELECT COALESCE(SUM(actual_duration_min), 0) FROM trips WHERE user_id = ${userId}::uuid AND status = 'completed') as total_duration_min,
-      (SELECT COUNT(*) FROM poi_status WHERE user_id = ${userId}::uuid AND status = 'saved')::int as saved_places_count,
-      (SELECT COUNT(*) FROM poi_status WHERE user_id = ${userId}::uuid AND status = 'want_to_go')::int as want_to_go_count
-    FROM users u
-    WHERE u.id = ${userId}::uuid
-  `;
-
+  const statsRow = statsRows[0];
   const totalDistanceKm = statsRow?.total_distance_km ? Number(statsRow.total_distance_km) : 0;
   const totalTrips = statsRow?.total_trips ? Number(statsRow.total_trips) : 0;
   const placesVisited = Number(statsRow?.places_visited ?? 0);
@@ -282,72 +309,92 @@ export async function getUserProfile(userId: string): Promise<UserProfileRespons
     totalTravelDurationHours,
   };
 
-  // 3. Category & Regional Breakdown Context for Achievements
-  const [visitedBreakdown] = await db.$queryRaw<
-    {
-      himalayan_visits: bigint | number;
-      heritage_visits: bigint | number;
-      sunset_visits: bigint | number;
-      trek_visits: bigint | number;
-      multi_day_trips: bigint | number;
-    }[]
-  >`
-    SELECT
-      (
-        SELECT COUNT(DISTINCT ps.poi_id)
-        FROM poi_status ps
-        JOIN pois p ON p.id = ps.poi_id
-        JOIN poi_metadata pm ON pm.poi_id = p.id
-        WHERE ps.user_id = ${userId}::uuid
-          AND ps.status = 'visited'
-          AND LOWER(pm.state) = ANY(${HIMALAYAN_STATES})
-      )::int as himalayan_visits,
-      (
-        SELECT COUNT(DISTINCT ps.poi_id)
-        FROM poi_status ps
-        JOIN pois p ON p.id = ps.poi_id
-        WHERE ps.user_id = ${userId}::uuid
-          AND ps.status = 'visited'
-          AND (LOWER(p.category) IN ('heritage', 'monument', 'fort', 'temple') OR 'heritage' = ANY(p.tags))
-      )::int as heritage_visits,
-      (
-        SELECT COUNT(DISTINCT ps.poi_id)
-        FROM poi_status ps
-        JOIN pois p ON p.id = ps.poi_id
-        WHERE ps.user_id = ${userId}::uuid
-          AND ps.status = 'visited'
-          AND (LOWER(p.category) IN ('viewpoint', 'scenic', 'sunset', 'hill') OR 'sunset' = ANY(p.tags))
-      )::int as sunset_visits,
-      (
-        SELECT COUNT(DISTINCT ps.poi_id)
-        FROM poi_status ps
-        JOIN pois p ON p.id = ps.poi_id
-        WHERE ps.user_id = ${userId}::uuid
-          AND ps.status = 'visited'
-          AND LOWER(p.category) IN ('trek', 'trail', 'waterfall')
-      )::int as trek_visits,
-      (
-        SELECT COUNT(*)
-        FROM trips
-        WHERE user_id = ${userId}::uuid AND status = 'completed' AND day_count >= 2
-      )::int as multi_day_trips
-  `;
+  // 2. Only run breakdown query if user has visited places or completed trips
+  let visitedBreakdown: {
+    himalayan_visits: number;
+    heritage_visits: number;
+    sunset_visits: number;
+    trek_visits: number;
+    multi_day_trips: number;
+  } = {
+    himalayan_visits: 0,
+    heritage_visits: 0,
+    sunset_visits: 0,
+    trek_visits: 0,
+    multi_day_trips: 0,
+  };
 
-  // 4. Fetch Existing Saved Achievement Unlocks
-  const existingAchRows = await db.user_achievements.findMany({
-    where: { user_id: userId },
-    select: { badge_key: true, unlocked_at: true },
-  });
+  if (placesVisited > 0 || totalTrips > 0) {
+    const [breakdownRow] = await db.$queryRaw<
+      {
+        himalayan_visits: bigint | number;
+        heritage_visits: bigint | number;
+        sunset_visits: bigint | number;
+        trek_visits: bigint | number;
+        multi_day_trips: bigint | number;
+      }[]
+    >`
+      SELECT
+        (
+          SELECT COUNT(DISTINCT ps.poi_id)
+          FROM poi_status ps
+          JOIN pois p ON p.id = ps.poi_id
+          JOIN poi_metadata pm ON pm.poi_id = p.id
+          WHERE ps.user_id = ${userId}::uuid
+            AND ps.status = 'visited'
+            AND LOWER(pm.state) = ANY(${HIMALAYAN_STATES})
+        )::int as himalayan_visits,
+        (
+          SELECT COUNT(DISTINCT ps.poi_id)
+          FROM poi_status ps
+          JOIN pois p ON p.id = ps.poi_id
+          WHERE ps.user_id = ${userId}::uuid
+            AND ps.status = 'visited'
+            AND (LOWER(p.category) IN ('heritage', 'monument', 'fort', 'temple') OR 'heritage' = ANY(p.tags))
+        )::int as heritage_visits,
+        (
+          SELECT COUNT(DISTINCT ps.poi_id)
+          FROM poi_status ps
+          JOIN pois p ON p.id = ps.poi_id
+          WHERE ps.user_id = ${userId}::uuid
+            AND ps.status = 'visited'
+            AND (LOWER(p.category) IN ('viewpoint', 'scenic', 'sunset', 'hill') OR 'sunset' = ANY(p.tags))
+        )::int as sunset_visits,
+        (
+          SELECT COUNT(DISTINCT ps.poi_id)
+          FROM poi_status ps
+          JOIN pois p ON p.id = ps.poi_id
+          WHERE ps.user_id = ${userId}::uuid
+            AND ps.status = 'visited'
+            AND LOWER(p.category) IN ('trek', 'trail', 'waterfall')
+        )::int as trek_visits,
+        (
+          SELECT COUNT(*)
+          FROM trips
+          WHERE user_id = ${userId}::uuid AND status = 'completed' AND day_count >= 2
+        )::int as multi_day_trips
+    `;
+    if (breakdownRow) {
+      visitedBreakdown = {
+        himalayan_visits: Number(breakdownRow.himalayan_visits ?? 0),
+        heritage_visits: Number(breakdownRow.heritage_visits ?? 0),
+        sunset_visits: Number(breakdownRow.sunset_visits ?? 0),
+        trek_visits: Number(breakdownRow.trek_visits ?? 0),
+        multi_day_trips: Number(breakdownRow.multi_day_trips ?? 0),
+      };
+    }
+  }
+
+  // 3. Evaluate Achievements
   const existingUnlocks = new Map(existingAchRows.map((a) => [a.badge_key, a.unlocked_at]));
-
   const achievements = evaluateAchievements(
     stats,
     {
-      himalayanVisits: Number(visitedBreakdown?.himalayan_visits ?? 0),
-      heritageVisits: Number(visitedBreakdown?.heritage_visits ?? 0),
-      sunsetVisits: Number(visitedBreakdown?.sunset_visits ?? 0),
-      trekVisits: Number(visitedBreakdown?.trek_visits ?? 0),
-      multiDayTrips: Number(visitedBreakdown?.multi_day_trips ?? 0),
+      himalayanVisits: visitedBreakdown.himalayan_visits,
+      heritageVisits: visitedBreakdown.heritage_visits,
+      sunsetVisits: visitedBreakdown.sunset_visits,
+      trekVisits: visitedBreakdown.trek_visits,
+      multiDayTrips: visitedBreakdown.multi_day_trips,
     },
     existingUnlocks,
   );
@@ -368,10 +415,22 @@ export async function getUserProfile(userId: string): Promise<UserProfileRespons
           update: { progress: ach.progress },
         })
         .catch(() => {});
+
+      dispatchNotification({
+        userId,
+        type: "achievement_unlocked",
+        title: "New Badge Unlocked! 🏆",
+        subtitle: `You earned the "${ach.title}" travel milestone badge.`,
+        data: {
+          entityType: "achievement",
+          entityId: ach.badgeKey,
+        },
+        idempotencyKey: `badge_${userId}_${ach.badgeKey}`,
+      }).catch(() => {});
     }
   }
 
-  // Pick Featured Badge (either high-tier unlocked regional/distance badge or closest in-progress milestone)
+  // Pick Featured Badge
   const featuredAchievement =
     achievements.find((a) => a.badgeKey === "himalayan_explorer" && a.isUnlocked) ||
     achievements.find((a) => a.badgeKey === "500_km_club" && a.isUnlocked) ||
@@ -379,13 +438,7 @@ export async function getUserProfile(userId: string): Promise<UserProfileRespons
     achievements[0] ||
     null;
 
-  // 5. Fetch Recent Completed Trips (Top 3) with Covers and Stop Counts
-  const rawTrips = await db.trips.findMany({
-    where: { user_id: userId },
-    orderBy: { completed_at: "desc" },
-    take: 3,
-  });
-
+  // 4. Populate Trip Details
   const tripIds = rawTrips.map((t) => t.id);
   const stopCounts = tripIds.length > 0
     ? await db.trip_stops.groupBy({
@@ -400,7 +453,7 @@ export async function getUserProfile(userId: string): Promise<UserProfileRespons
     id: t.id,
     title: t.title,
     destination: t.destination,
-    coverPhotoUrl: null, // Populated via memories or poi photos below
+    coverPhotoUrl: null,
     startDate: t.started_at ? t.started_at.toISOString() : (t.created_at?.toISOString() ?? new Date().toISOString()),
     completedDate: t.completed_at ? t.completed_at.toISOString() : null,
     actualDistanceKm: t.actual_distance_km ? Number(t.actual_distance_km) : 0,
@@ -424,20 +477,7 @@ export async function getUserProfile(userId: string): Promise<UserProfileRespons
     }
   }
 
-  // 6. Fetch Recent Memories (Top 6)
-  const rawMemories = await db.memories.findMany({
-    where: { user_id: userId, deleted_at: null },
-    orderBy: { created_at: "desc" },
-    take: 6,
-    select: {
-      id: true,
-      photo_url: true,
-      thumbnail_url: true,
-      caption: true,
-      created_at: true,
-    },
-  });
-
+  // 5. Recent Memories
   const recentMemories: RecentMemorySummary[] = rawMemories.map((m) => ({
     id: m.id,
     photoUrl: m.photo_url,
@@ -446,10 +486,6 @@ export async function getUserProfile(userId: string): Promise<UserProfileRespons
     createdAt: m.created_at ? m.created_at.toISOString() : new Date().toISOString(),
   }));
 
-  // 7. Calculate Collections Count
-  const prefs = (user.preferences as any) || {};
-  const collectionsCount = Array.isArray(prefs.collections) ? prefs.collections.length : 0;
-
   return {
     user: {
       id: user.id,
@@ -457,6 +493,7 @@ export async function getUserProfile(userId: string): Promise<UserProfileRespons
       username: user.username,
       fullName: user.full_name,
       avatarUrl: user.avatar_url,
+      bannerUrl: (user.preferences as any)?.bannerUrl || null,
       bio: user.bio,
       homeCity: user.home_city,
       subscriptionTier: user.subscription_tier || "free",
@@ -482,13 +519,26 @@ export async function updateUserProfile(
     bio?: string;
     homeCity?: string;
     avatarUrl?: string;
+    bannerUrl?: string;
   },
 ) {
+  const user = await db.users.findUnique({
+    where: { id: userId },
+    select: { preferences: true },
+  });
+  const currentPrefs = (user?.preferences as any) || {};
+
   const data: Record<string, any> = { updated_at: new Date() };
   if (input.fullName !== undefined) data.full_name = input.fullName.trim() || null;
   if (input.bio !== undefined) data.bio = input.bio.trim() || null;
   if (input.homeCity !== undefined) data.home_city = input.homeCity.trim() || null;
   if (input.avatarUrl !== undefined) data.avatar_url = input.avatarUrl.trim() || null;
+  if (input.bannerUrl !== undefined) {
+    data.preferences = {
+      ...currentPrefs,
+      bannerUrl: input.bannerUrl.trim() || null,
+    };
+  }
 
   const updated = await db.users.update({
     where: { id: userId },
@@ -501,10 +551,14 @@ export async function updateUserProfile(
       avatar_url: true,
       bio: true,
       home_city: true,
+      preferences: true,
       subscription_tier: true,
       created_at: true,
     },
   });
 
-  return updated;
+  return {
+    ...updated,
+    banner_url: (updated.preferences as any)?.bannerUrl || null,
+  };
 }

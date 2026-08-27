@@ -139,7 +139,7 @@ export function TripTrackingScreen({ route, navigation }: Props) {
   const handleTabPress = (tab: TabType) => {
     if (tab === "Home") navigation.navigate("Dashboard");
     else if (tab === "Explore") navigation.navigate("Home");
-    else if (tab === "Profile") navigation.navigate("Auth");
+    else if (tab === "Profile") navigation.navigate("Profile");
   };
 
   const handleOptimize = async () => {

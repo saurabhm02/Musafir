@@ -14,6 +14,9 @@ import { notificationsRoutes } from "./routes/notifications";
 import { adminMemoriesRoutes } from "./routes/adminMemories";
 import { corridorSearchRoutes } from "./routes/corridorSearch";
 import { profileRoutes } from "./routes/profile";
+import { savedPlacesRoutes } from "./routes/savedPlaces";
+import { wantToGoRoutes } from "./routes/wantToGo";
+import { visitedPoisRoutes } from "./routes/visitedPois";
 
 Bun.serve({
   port: 3001,
@@ -23,6 +26,9 @@ Bun.serve({
     ...authRoutes,
     ...meRoutes,
     ...profileRoutes,
+    ...savedPlacesRoutes,
+    ...wantToGoRoutes,
+    ...visitedPoisRoutes,
     ...poisRoutes,
     ...memoriesRoutes,
     ...routeSearchRoutes,

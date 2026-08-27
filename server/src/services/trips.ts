@@ -1,5 +1,7 @@
 import { db } from "../lib/db";
 import { uploadObject } from "./storage";
+import { dispatchNotification } from "./notifications";
+import { recordPoiVisit } from "./visitedPois";
 
 export type TripStopWithPoi = {
   id: string;
@@ -404,6 +406,19 @@ export async function completeTrip(
       updated_at = NOW()
     WHERE id = ${userId}::uuid
   `;
+
+  // 4. Dispatch notification
+  dispatchNotification({
+    userId,
+    type: "trip_completed",
+    title: "Journey Completed! 🛣️",
+    subtitle: `You completed "${trip.title}" covering ${Math.round(finalDistanceKm)} km.`,
+    data: {
+      entityType: "trip",
+      entityId: tripId,
+    },
+    idempotencyKey: `trip_completed_${tripId}`,
+  }).catch(() => {});
 
   return {
     id: tripId,

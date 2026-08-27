@@ -8,7 +8,13 @@ export const profileRoutes = {
       return Response.json(profile);
     }),
     PATCH: protectedRoute(async (req, userId) => {
-      const body = (await req.json()) as { fullName?: string; bio?: string; homeCity?: string; avatarUrl?: string };
+      const body = (await req.json()) as {
+        fullName?: string;
+        bio?: string;
+        homeCity?: string;
+        avatarUrl?: string;
+        bannerUrl?: string;
+      };
       const updated = await updateUserProfile(userId, body);
       return Response.json(updated);
     }),

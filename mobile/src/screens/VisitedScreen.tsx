@@ -159,7 +159,7 @@ export function VisitedScreen({ navigation }: Props) {
     if (tab === "Home") navigation.navigate("Dashboard");
     else if (tab === "Explore") navigation.navigate("Home");
     else if (tab === "Trips") navigation.navigate("TripTracking", undefined);
-    else if (tab === "Profile") navigation.navigate("Auth");
+    else if (tab === "Profile") navigation.navigate("Profile");
   };
 
   return (

@@ -34,6 +34,11 @@ model users {
   trips             trips[]
   poi_status        poi_status[]
   user_achievements user_achievements[]
+  user_saved_pois   user_saved_pois[]
+  user_want_to_go   user_want_to_go[]
+  user_visited_pois user_visited_pois[]
+  collections       collections[]
+  notifications     notifications[]
 }
 
 model routes {
@@ -98,9 +103,13 @@ model pois {
   trip_stops    trip_stops[]
   poi_status    poi_status[]
   poi_metadata  poi_metadata?
-  poi_photos    poi_photos[]
-  poi_routes    poi_routes[]
-  users         users?        @relation(fields: [created_by], references: [id])
+  poi_photos        poi_photos[]
+  poi_routes        poi_routes[]
+  user_saved_pois   user_saved_pois[]
+  user_want_to_go   user_want_to_go[]
+  user_visited_pois user_visited_pois[]
+  collection_pois   collection_pois[]
+  users             users?        @relation(fields: [created_by], references: [id])
 
   @@index([location], map: "pois_location_gix", type: Gist)
 }
@@ -210,6 +219,7 @@ model trips {
   updated_at           DateTime?    @default(now()) @db.Timestamptz(6)
   users                users        @relation(fields: [user_id], references: [id], onDelete: Cascade)
   trip_stops           trip_stops[]
+  user_visited_pois    user_visited_pois[]
 
   @@index([user_id, status], map: "trips_user_status_idx")
   @@index([recorded_route], map: "trips_recorded_route_gix", type: Gist)
@@ -309,4 +319,91 @@ model user_achievements {
   @@unique([user_id, badge_key], map: "user_achievements_user_badge_unique")
   @@index([user_id], map: "user_achievements_user_id_idx")
 }
+
+model user_saved_pois {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  poi_id     String    @db.Uuid
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  pois       pois      @relation(fields: [poi_id], references: [id], onDelete: Cascade)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, poi_id], map: "user_saved_pois_user_poi_unique")
+  @@index([user_id, created_at(sort: Desc)], map: "user_saved_pois_user_created_idx")
+}
+
+model user_want_to_go {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  poi_id     String    @db.Uuid
+  notes      String?
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  pois       pois      @relation(fields: [poi_id], references: [id], onDelete: Cascade)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, poi_id], map: "user_want_to_go_user_poi_unique")
+  @@index([user_id, created_at(sort: Desc)], map: "user_want_to_go_user_created_idx")
+}
+
+model user_visited_pois {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  poi_id     String    @db.Uuid
+  trip_id    String?   @db.Uuid
+  source     String    @default("manual")
+  visited_at DateTime  @default(now()) @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  pois       pois      @relation(fields: [poi_id], references: [id], onDelete: Cascade)
+  trips      trips?    @relation(fields: [trip_id], references: [id], onDelete: SetNull)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, poi_id], map: "user_visited_pois_user_poi_idx")
+  @@index([user_id, visited_at(sort: Desc)], map: "user_visited_pois_user_visited_idx")
+}
+
+model collections {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String            @db.Uuid
+  name            String
+  description     String?
+  cover_url       String?
+  is_public       Boolean           @default(false)
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime          @default(now()) @db.Timestamptz(6)
+  users           users             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  collection_pois collection_pois[]
+
+  @@index([user_id, updated_at(sort: Desc)], map: "collections_user_updated_idx")
+}
+
+model collection_pois {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  collection_id String      @db.Uuid
+  poi_id        String      @db.Uuid
+  sort_order    Int         @default(0)
+  added_at      DateTime    @default(now()) @db.Timestamptz(6)
+  collections   collections @relation(fields: [collection_id], references: [id], onDelete: Cascade)
+  pois          pois        @relation(fields: [poi_id], references: [id], onDelete: Cascade)
+
+  @@unique([collection_id, poi_id], map: "collection_pois_coll_poi_unique")
+  @@index([collection_id, sort_order], map: "collection_pois_order_idx")
+}
+
+model notifications {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String    @db.Uuid
+  type            String
+  title           String
+  subtitle        String
+  data            Json      @default("{}")
+  is_read         Boolean   @default(false)
+  read_at         DateTime? @db.Timestamptz(6)
+  idempotency_key String?
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  users           users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, idempotency_key], map: "notifications_user_idempotency_unique")
+  @@index([user_id, is_read, created_at(sort: Desc)], map: "notifications_user_unread_idx")
+}
+
 

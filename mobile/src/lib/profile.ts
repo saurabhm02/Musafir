@@ -52,6 +52,7 @@ export type UserProfile = {
     username: string | null;
     fullName: string | null;
     avatarUrl: string | null;
+    bannerUrl: string | null;
     bio: string | null;
     homeCity: string | null;
     subscriptionTier: string;
@@ -78,6 +79,7 @@ export async function updateUserProfile(data: {
   bio?: string;
   homeCity?: string;
   avatarUrl?: string;
+  bannerUrl?: string;
 }): Promise<UserProfile["user"]> {
   return api<UserProfile["user"]>("/profile/me", {
     method: "PATCH",
