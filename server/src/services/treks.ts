@@ -33,6 +33,49 @@ export interface TrekListItem {
   updatedAt: Date;
 }
 
+/**
+ * Searches and lists treks in the database with optional keyword filters,
+ * region, difficulty grade, and pagination.
+ *
+ * @example
+ * // 1. Input parameters:
+ * const query: ListTreksQuery = {
+ *   q: "fort",
+ *   region: "Himachal Pradesh",
+ *   difficulty: "moderate",
+ *   limit: 10,
+ *   offset: 0,
+ * };
+ *
+ * // 2. HTTP Request:
+ * // GET /treks?q=fort&region=Himachal%20Pradesh&difficulty=moderate&limit=10&offset=0
+ *
+ * // 3. What the Server returns:
+ * [
+ *   {
+ *     "id": "7a35cb99-5282-4fa0-8f9f-cf92c20698ba",
+ *     "poiId": "d0598858-a53d-4951-b0db-67ce292b3a8a",
+ *     "name": "Raghupur Fort Trek",
+ *     "slug": "raghupur-fort-trek",
+ *     "region": "Himachal Pradesh",
+ *     "difficulty": "moderate",
+ *     "summary": "Scenic ridge trek with 360-degree Himalayan views.",
+ *     "bestMonths": [4, 5, 6, 9, 10, 11],
+ *     "lat": 31.5348,
+ *     "lon": 77.378,
+ *     "coverPhoto": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b",
+ *     "routesCount": 2,
+ *     "primaryRoute": {
+ *       "id": "c1f7a08b-2401-4ec9-8664-8830768e7ec8",
+ *       "name": "Jalori Pass to Raghupur Fort Trail",
+ *       "distanceKm": 3.5,
+ *       "elevationGainM": 340,
+ *       "maxElevationM": 3540,
+ *       "verificationStatus": "musafir_verified"
+ *     }
+ *   }
+ * ]
+ */
 export async function listTreks(query: ListTreksQuery = {}): Promise<TrekListItem[]> {
   const limit = Math.min(Math.max(1, query.limit ?? 50), 100);
   const offset = Math.max(0, query.offset ?? 0);
@@ -149,6 +192,39 @@ export async function listTreks(query: ListTreksQuery = {}): Promise<TrekListIte
   }));
 }
 
+/**
+ * Fetches full details for a single trek by its UUID or slug, including
+ * its primary verified route, all available routes, top waypoints, and photos.
+ *
+ * @example
+ * // 1. Input:
+ * const idOrSlug = "raghupur-fort-trek";
+ *
+ * // 2. HTTP Request:
+ * // GET /treks/raghupur-fort-trek
+ *
+ * // 3. What the Server returns:
+ * {
+ *   "id": "7a35cb99-5282-4fa0-8f9f-cf92c20698ba",
+ *   "name": "Raghupur Fort Trek",
+ *   "slug": "raghupur-fort-trek",
+ *   "region": "Himachal Pradesh",
+ *   "difficulty": "moderate",
+ *   "summary": "Historic fort ruins with oak forests and 360-degree Himalayan panorama.",
+ *   "bestMonths": [4, 5, 6, 9, 10, 11],
+ *   "lat": 31.5348,
+ *   "lon": 77.378,
+ *   "routesCount": 2,
+ *   "primaryRoute": {
+ *     "id": "c1f7a08b-2401-4ec9-8664-8830768e7ec8",
+ *     "name": "Jalori Pass Standard Trail",
+ *     "distanceKm": 3.5,
+ *     "elevationGainM": 340,
+ *     "maxElevationM": 3540,
+ *     "verificationStatus": "musafir_verified"
+ *   }
+ * }
+ */
 export async function getTrekById(idOrSlug: string) {
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
 

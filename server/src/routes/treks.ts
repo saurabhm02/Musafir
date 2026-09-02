@@ -14,7 +14,17 @@ import {
 import { getOfflineTrekPackage } from "../services/offlineTrekPackage";
 
 export const treksRoutes = {
-  // GET /treks
+  /**
+   * Endpoint: GET /treks
+   * Returns a paginated list of mountain treks with optional search keywords, region, and difficulty grade.
+   *
+   * @example
+   * // HTTP Request:
+   * // GET /treks?q=fort&region=Himachal%20Pradesh&difficulty=moderate&limit=10&offset=0
+   *
+   * // Response (200 OK):
+   * // [ { "id": "7a35cb99...", "name": "Raghupur Fort Trek", "difficulty": "moderate", "routesCount": 2 } ]
+   */
   "/treks": {
     GET: async (req: Request) => {
       const url = new URL(req.url);
@@ -29,7 +39,17 @@ export const treksRoutes = {
     },
   },
 
-  // GET /treks/:id
+  /**
+   * Endpoint: GET /treks/:id
+   * Fetches full trek details, verified routes, and top waypoints by trek UUID or URL slug.
+   *
+   * @example
+   * // HTTP Request:
+   * // GET /treks/raghupur-fort-trek
+   *
+   * // Response (200 OK):
+   * // { "id": "7a35cb99...", "name": "Raghupur Fort Trek", "primaryRoute": { ... } }
+   */
   "/treks/:id": {
     GET: async (req: Request & { params: { id: string } }) => {
       const trek = await getTrekById(req.params.id);
@@ -40,7 +60,17 @@ export const treksRoutes = {
     },
   },
 
-  // GET /treks/:id/offline-package
+  /**
+   * Endpoint: GET /treks/:id/offline-package
+   * Downloads a lightweight self-contained offline package bundle for offline trail navigation.
+   *
+   * @example
+   * // HTTP Request:
+   * // GET /treks/raghupur-fort-trek/offline-package?routeId=c1f7a08b-2401-4ec9-8664-8830768e7ec8
+   *
+   * // Response (200 OK):
+   * // { "packageVersion": "pkg_v1_c1f7a08b_...", "sizeEstimateBytes": 124500, "route": { ... }, "mapBoundary": { ... } }
+   */
   "/treks/:id/offline-package": {
     GET: async (req: Request & { params: { id: string } }) => {
       try {

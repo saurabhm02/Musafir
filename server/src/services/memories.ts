@@ -39,6 +39,35 @@ export type MemoryDto = {
   updated_at: string | null;
 };
 
+/**
+ * Creates a memory record in 'processing' status and generates a presigned S3/storage
+ * upload URL for direct image upload from the mobile app.
+ *
+ * @example
+ * // 1. Input:
+ * const userId = "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d";
+ * const input = {
+ *   trekId: "7a35cb99-5282-4fa0-8f9f-cf92c20698ba",
+ *   trekSessionId: "sess_8a21f03d-14a9-4ec2-9e90-21a41bc38d10",
+ *   mimeType: "image/jpeg",
+ *   fileSize: 2450000,
+ *   caption: "Morning golden hour at Raghupur Meadow",
+ *   visibility: "public",
+ *   lat: 31.5365,
+ *   lon: 77.3760
+ * };
+ *
+ * // 2. HTTP Request:
+ * // POST /memories/upload-intent
+ * // Body: { "trekId": "7a35cb99...", "mimeType": "image/jpeg", "fileSize": 2450000, "lat": 31.5365, "lon": 77.3760 }
+ *
+ * // 3. What the Server returns:
+ * {
+ *   "memoryId": "mem_f941a02c-55b2-4d11-8893-11a84f3e9c10",
+ *   "uploadUrl": "https://s3.musafir.app/memories/upload?signature=...",
+ *   "originalKey": "memories/9b1deb4d/mem_f941a02c/original.jpg"
+ * }
+ */
 export async function initiateMemoryUpload(
   userId: string,
   input: {
@@ -409,6 +438,40 @@ export type TrekMemoryItem = MemoryDto & {
   is_liked: boolean;
 };
 
+/**
+ * Lists public photo memories taken along a trek trail, with optional spatial
+ * bounding box (viewport), media type filtering (photos vs videos), and pagination.
+ *
+ * @example
+ * // 1. Input:
+ * const trekId = "7a35cb99-5282-4fa0-8f9f-cf92c20698ba";
+ * const userId = null; // public guest
+ * const options = {
+ *   bbox: [77.370, 31.530, 77.385, 31.545], // map screen bounds
+ *   type: "photos",
+ *   limit: 20
+ * };
+ *
+ * // 2. HTTP Request:
+ * // GET /treks/7a35cb99-5282-4fa0-8f9f-cf92c20698ba/memories?bbox=77.370,31.530,77.385,31.545
+ *
+ * // 3. What the Server returns:
+ * {
+ *   "total": 12,
+ *   "trek": { "id": "7a35cb99...", "name": "Raghupur Fort Trek", "slug": "raghupur-fort-trek" },
+ *   "items": [
+ *     {
+ *       "id": "mem_f941a02c-55b2-4d11-8893-11a84f3e9c10",
+ *       "photo_url": "https://images.unsplash.com/photo-1506744038136-46273834b3fb",
+ *       "caption": "Summit view of the Great Himalayan National Park",
+ *       "lat": 31.5385,
+ *       "lon": 77.3752,
+ *       "altitude_m": 3540,
+ *       "author": { "full_name": "Aarav Sharma", "username": "aarav_trekker" }
+ *     }
+ *   ]
+ * }
+ */
 export async function listTrekMemories(
   trekId: string,
   userId: string | null,
@@ -588,6 +651,36 @@ export async function listTrekMemories(
   };
 }
 
+/**
+ * Retrieves detailed metadata for a single photo memory, including author profile,
+ * tags, altitude, and location name, enforcing privacy rules for private memories.
+ *
+ * @example
+ * // 1. Input:
+ * const memoryId = "mem_f941a02c-55b2-4d11-8893-11a84f3e9c10";
+ * const userId = "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d";
+ *
+ * // 2. HTTP Request:
+ * // GET /memories/mem_f941a02c-55b2-4d11-8893-11a84f3e9c10
+ *
+ * // 3. What the Server returns:
+ * {
+ *   "id": "mem_f941a02c-55b2-4d11-8893-11a84f3e9c10",
+ *   "photo_url": "https://images.unsplash.com/photo-1506744038136-46273834b3fb",
+ *   "caption": "Summit view of the Great Himalayan National Park",
+ *   "visibility": "public",
+ *   "lat": 31.5385,
+ *   "lon": 77.3752,
+ *   "altitude_m": 3540,
+ *   "location_name": "Raghupur Fort Summit",
+ *   "author": {
+ *     "id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+ *     "full_name": "Aarav Sharma",
+ *     "username": "aarav_trekker"
+ *   },
+ *   "tags": ["#trekking", "#himalayas", "#summit"]
+ * }
+ */
 export async function getMemoryById(
   memoryId: string,
   userId: string | null

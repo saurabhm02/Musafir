@@ -136,13 +136,23 @@ const KEY_POINTS_PREFIX = "@musafir_pts:";
 const KEY_MEMORIES = "@musafir_offline_memories";
 const KEY_SYNC_QUEUE = "@musafir_sync_queue";
 
+/**
+ * Local offline persistence layer using AsyncStorage.
+ * Caches verified route packages, buffers GPS track points during dead zones,
+ * and manages offline photo queues.
+ */
 export const OfflineStorage = {
-  // 1. Packages
+  /**
+   * Persists a downloaded offline trek bundle to local storage.
+   */
   async saveOfflinePackage(pkg: OfflineTrekPackageData): Promise<void> {
     const key = `${KEY_PKG_PREFIX}${pkg.trek.id}:${pkg.route.id}`;
     await AsyncStorage.setItem(key, JSON.stringify(pkg));
   },
 
+  /**
+   * Reads a cached offline trek package for zero-network navigation.
+   */
   async getOfflinePackage(trekId: string, routeId?: string): Promise<OfflineTrekPackageData | null> {
     if (routeId) {
       const key = `${KEY_PKG_PREFIX}${trekId}:${routeId}`;
@@ -158,6 +168,9 @@ export const OfflineStorage = {
     return raw ? JSON.parse(raw) : null;
   },
 
+  /**
+   * Lists all offline packages saved on the device (used by DownloadedTreksScreen).
+   */
   async listOfflinePackages(): Promise<OfflineTrekPackageData[]> {
     const allKeys = await AsyncStorage.getAllKeys();
     const pkgKeys = allKeys.filter((k) => k.startsWith(KEY_PKG_PREFIX));
@@ -168,6 +181,9 @@ export const OfflineStorage = {
       .filter((p): p is OfflineTrekPackageData => p !== null && p.status !== "deleted");
   },
 
+  /**
+   * Safely deletes an offline package to free up device storage.
+   */
   async deleteOfflinePackage(trekId: string, routeId?: string): Promise<void> {
     if (routeId) {
       const key = `${KEY_PKG_PREFIX}${trekId}:${routeId}`;

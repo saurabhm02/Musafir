@@ -188,7 +188,35 @@ export function computeSessionStatsFromPoints(
  */
 export const TrekTrackingService = {
   /**
-   * Start a new tracking session
+   * Initializes a live trek tracking session for an authenticated traveler,
+   * setting status to 'active' and recording the initial Point 0.
+   *
+   * @example
+   * // 1. Input:
+   * const userId = "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d";
+   * const data = {
+   *   trekId: "7a35cb99-5282-4fa0-8f9f-cf92c20698ba",
+   *   trekRouteId: "c1f7a08b-2401-4ec9-8664-8830768e7ec8",
+   *   startLat: 31.5348,
+   *   startLon: 77.3780
+   * };
+   *
+   * // 2. HTTP Request:
+   * // POST /trek-sessions
+   * // Body: { "trekId": "7a35cb99...", "trekRouteId": "c1f7a08b...", "startLat": 31.5348, "startLon": 77.3780 }
+   *
+   * // 3. What the Server returns:
+   * {
+   *   "id": " sess_8a21f03d-14a9-4ec2-9e90-21a41bc38d10",
+   *   "userId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+   *   "trekId": "7a35cb99-5282-4fa0-8f9f-cf92c20698ba",
+   *   "status": "active",
+   *   "startedAt": "2026-09-02T10:00:00.000Z",
+   *   "actualDistanceKm": 0,
+   *   "actualDurationSec": 0,
+   *   "elevationGainM": 0,
+   *   "pointsCount": 1
+   * }
    */
   async startSession(
     userId: string,
@@ -275,7 +303,32 @@ export const TrekTrackingService = {
   },
 
   /**
-   * Batch record GPS points with idempotency & offline queue resilience
+   * Ingests a batch of raw GPS fixes from the phone, filters satellite noise,
+   * stores points with sequence numbers, and calculates live distance & ascent.
+   *
+   * @example
+   * // 1. Input:
+   * const userId = "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d";
+   * const sessionId = "sess_8a21f03d-14a9-4ec2-9e90-21a41bc38d10";
+   * const points: TrackPointInput[] = [
+   *   { lat: 31.5348, lon: 77.3780, altitude: 3120, sequence: 1, timestamp: "2026-09-02T10:00:10Z" },
+   *   { lat: 31.5362, lon: 77.3769, altitude: 3150, sequence: 2, timestamp: "2026-09-02T10:00:20Z" }
+   * ];
+   *
+   * // 2. HTTP Request:
+   * // POST /trek-sessions/sess_8a21f03d-14a9-4ec2-9e90-21a41bc38d10/points
+   * // Body: { "points": [ ... ] }
+   *
+   * // 3. What the Server returns:
+   * {
+   *   "id": "sess_8a21f03d-14a9-4ec2-9e90-21a41bc38d10",
+   *   "status": "active",
+   *   "actualDistanceKm": 0.45,
+   *   "actualDurationSec": 120,
+   *   "elevationGainM": 30,
+   *   "highestAltitudeM": 3150,
+   *   "pointsCount": 3
+   * }
    */
   async recordPoints(userId: string, sessionId: string, points: TrackPointInput[]) {
     // 1. Verify session exists and belongs to user
@@ -394,7 +447,22 @@ export const TrekTrackingService = {
   },
 
   /**
-   * Pause session
+   * Pauses the active tracking session (e.g. resting at a tea shop or viewpoint).
+   *
+   * @example
+   * // 1. Input:
+   * const userId = "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d";
+   * const sessionId = "sess_8a21f03d-14a9-4ec2-9e90-21a41bc38d10";
+   *
+   * // 2. HTTP Request:
+   * // POST /trek-sessions/sess_8a21f03d-14a9-4ec2-9e90-21a41bc38d10/pause
+   *
+   * // 3. What the Server returns:
+   * {
+   *   "id": "sess_8a21f03d-14a9-4ec2-9e90-21a41bc38d10",
+   *   "status": "paused",
+   *   "pausedAt": "2026-09-02T10:45:00.000Z"
+   * }
    */
   async pauseSession(userId: string, sessionId: string) {
     const session = await prisma.trek_sessions.findUnique({
@@ -421,7 +489,22 @@ export const TrekTrackingService = {
   },
 
   /**
-   * Resume session
+   * Resumes a paused tracking session when the traveler starts walking again.
+   *
+   * @example
+   * // 1. Input:
+   * const userId = "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d";
+   * const sessionId = "sess_8a21f03d-14a9-4ec2-9e90-21a41bc38d10";
+   *
+   * // 2. HTTP Request:
+   * // POST /trek-sessions/sess_8a21f03d-14a9-4ec2-9e90-21a41bc38d10/resume
+   *
+   * // 3. What the Server returns:
+   * {
+   *   "id": "sess_8a21f03d-14a9-4ec2-9e90-21a41bc38d10",
+   *   "status": "active",
+   *   "resumedAt": "2026-09-02T11:00:00.000Z"
+   * }
    */
   async resumeSession(userId: string, sessionId: string) {
     const session = await prisma.trek_sessions.findUnique({
@@ -448,7 +531,28 @@ export const TrekTrackingService = {
   },
 
   /**
-   * Complete and finalize session
+   * Completes and finalizes the hike session: creates the final PostGIS LineString geometry,
+   * calculates final distance & elevation metrics, and sets status to 'completed'.
+   *
+   * @example
+   * // 1. Input:
+   * const userId = "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d";
+   * const sessionId = "sess_8a21f03d-14a9-4ec2-9e90-21a41bc38d10";
+   *
+   * // 2. HTTP Request:
+   * // POST /trek-sessions/sess_8a21f03d-14a9-4ec2-9e90-21a41bc38d10/complete
+   *
+   * // 3. What the Server returns:
+   * {
+   *   "id": "sess_8a21f03d-14a9-4ec2-9e90-21a41bc38d10",
+   *   "status": "completed",
+   *   "completedAt": "2026-09-02T12:30:00.000Z",
+   *   "actualDistanceKm": 3.85,
+   *   "actualDurationSec": 5400, // 1h 30m
+   *   "elevationGainM": 340,
+   *   "highestAltitudeM": 3540,
+   *   "geometry": { "type": "LineString", "coordinates": [ ... ] }
+   * }
    */
   async completeSession(userId: string, sessionId: string) {
     const session = await prisma.trek_sessions.findUnique({
@@ -499,7 +603,24 @@ export const TrekTrackingService = {
   },
 
   /**
-   * Retrieve active session for user (used on app startup / recovery)
+   * Recovers in-progress hike session for the user when the app restarts or phone reboots.
+   *
+   * @example
+   * // 1. Input:
+   * const userId = "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d";
+   *
+   * // 2. HTTP Request:
+   * // GET /trek-sessions/active
+   *
+   * // 3. What the Server returns:
+   * {
+   *   "id": "sess_8a21f03d-14a9-4ec2-9e90-21a41bc38d10",
+   *   "trekName": "Raghupur Fort Trek",
+   *   "status": "active",
+   *   "actualDistanceKm": 1.8,
+   *   "actualDurationSec": 2400,
+   *   "points": [ ... ]
+   * }
    */
   async getActiveSession(userId: string) {
     const session = await prisma.trek_sessions.findFirst({

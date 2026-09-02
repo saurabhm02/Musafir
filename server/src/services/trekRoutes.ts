@@ -48,6 +48,43 @@ function formatRouteOutput(r: any) {
   };
 }
 
+/**
+ * Lists all verified routes for a specific trek.
+ * By default, only approved routes (musafir_verified, community_verified) are returned.
+ * If the author or admin requests unverified routes, pending submissions are included.
+ *
+ * @example
+ * // 1. Input:
+ * const trekId = "7a35cb99-5282-4fa0-8f9f-cf92c20698ba";
+ * const options = { includeUnverified: false };
+ *
+ * // 2. HTTP Request:
+ * // GET /treks/7a35cb99-5282-4fa0-8f9f-cf92c20698ba/routes
+ *
+ * // 3. What the Server returns:
+ * [
+ *   {
+ *     "id": "c1f7a08b-2401-4ec9-8664-8830768e7ec8",
+ *     "trekId": "7a35cb99-5282-4fa0-8f9f-cf92c20698ba",
+ *     "name": "Jalori Pass to Raghupur Fort Trail",
+ *     "routeType": "out_and_back",
+ *     "distanceKm": 3.5,
+ *     "elevationGainM": 340,
+ *     "elevationLossM": 20,
+ *     "minElevationM": 3120,
+ *     "maxElevationM": 3540,
+ *     "startPointName": "Jalori Pass Trailhead",
+ *     "endPointName": "Raghupur Fort Summit",
+ *     "verificationStatus": "musafir_verified",
+ *     "confidence": "high",
+ *     "isPrimary": true,
+ *     "waypoints": [
+ *       { "name": "Jalori Pass", "type": "trailhead", "elevationM": 3120 },
+ *       { "name": "Raghupur Fort", "type": "summit", "elevationM": 3540 }
+ *     ]
+ *   }
+ * ]
+ */
 export async function listRoutesForTrek(trekId: string, options: RouteListOptions = {}) {
   // Validate trek exists
   const trekExists = await db.treks.findUnique({ where: { id: trekId }, select: { id: true } });
@@ -106,6 +143,34 @@ export async function listRoutesForTrek(trekId: string, options: RouteListOption
   return routes.map(formatRouteOutput);
 }
 
+/**
+ * Retrieves full details and GeoJSON coordinate geometry for a single trek route by its ID.
+ *
+ * @example
+ * // 1. Input:
+ * const routeId = "c1f7a08b-2401-4ec9-8664-8830768e7ec8";
+ *
+ * // 2. HTTP Request:
+ * // GET /trek-routes/c1f7a08b-2401-4ec9-8664-8830768e7ec8
+ *
+ * // 3. What the Server returns:
+ * {
+ *   "id": "c1f7a08b-2401-4ec9-8664-8830768e7ec8",
+ *   "name": "Jalori Pass to Raghupur Fort Trail",
+ *   "routeType": "out_and_back",
+ *   "distanceKm": 3.5,
+ *   "elevationGainM": 340,
+ *   "geometry": {
+ *     "type": "LineString",
+ *     "coordinates": [
+ *       [77.3780, 31.5348],
+ *       [77.3769, 31.5362],
+ *       [77.3752, 31.5385]
+ *     ]
+ *   },
+ *   "verificationStatus": "musafir_verified"
+ * }
+ */
 export async function getTrekRouteById(routeId: string, options: RouteAccessOptions = {}) {
   const sql = `
     SELECT 
@@ -158,6 +223,37 @@ export async function getTrekRouteById(routeId: string, options: RouteAccessOpti
   return formatRouteOutput(route);
 }
 
+/**
+ * Submits a new community-contributed trail route for a trek in 'pending' moderation status.
+ *
+ * @example
+ * // 1. Input:
+ * const trekId = "7a35cb99-5282-4fa0-8f9f-cf92c20698ba";
+ * const input: SubmitTrekRouteInput = {
+ *   name: "Raghupur Ridge Trail",
+ *   routeType: "out_and_back",
+ *   coordinates: [
+ *     [77.3780, 31.5348],
+ *     [77.3765, 31.5370],
+ *     [77.3750, 31.5390]
+ *   ],
+ *   distanceKm: 4.2,
+ *   elevationGainM: 410,
+ *   startPointName: "Jalori Pass South Gate",
+ *   endPointName: "Raghupur Meadow Viewpoint"
+ * };
+ * const userId = "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d";
+ *
+ * // 2. HTTP Request:
+ * // POST /treks/7a35cb99-5282-4fa0-8f9f-cf92c20698ba/routes
+ *
+ * // 3. What the Server returns:
+ * {
+ *   "id": "e4f1a23b-55c1-4822-9214-9981bc5ef3d1",
+ *   "status": "pending",
+ *   "message": "Route submitted for verification"
+ * }
+ */
 export async function createCommunityRoute(trekId: string, input: SubmitTrekRouteInput, userId: string) {
   // Validate trek exists
   const trek = await db.treks.findUnique({ where: { id: trekId } });
@@ -419,6 +515,32 @@ export async function listPendingTrekRoutes(limit = 50, offset = 0) {
   }));
 }
 
+/**
+ * Approves a pending community route and marks it verified (musafir_verified or community_verified).
+ *
+ * @example
+ * // 1. Input:
+ * const routeId = "e4f1a23b-55c1-4822-9214-9981bc5ef3d1";
+ * const adminUserId = "00000000-0000-0000-0000-000000000001";
+ * const options = {
+ *   verificationStatus: "musafir_verified",
+ *   confidence: "high",
+ *   isPrimary: true
+ * };
+ *
+ * // 2. HTTP Request:
+ * // POST /admin/trek-routes/e4f1a23b-55c1-4822-9214-9981bc5ef3d1/verify
+ *
+ * // 3. What the Server returns:
+ * {
+ *   "id": "e4f1a23b-55c1-4822-9214-9981bc5ef3d1",
+ *   "trekId": "7a35cb99-5282-4fa0-8f9f-cf92c20698ba",
+ *   "verificationStatus": "musafir_verified",
+ *   "confidence": "high",
+ *   "isPrimary": true,
+ *   "verifiedAt": "2026-09-02T10:00:00.000Z"
+ * }
+ */
 export async function verifyTrekRoute(
   routeId: string,
   adminUserId: string,
@@ -467,6 +589,27 @@ export async function verifyTrekRoute(
   };
 }
 
+/**
+ * Rejects a submitted trek route with a clear explanation reason for the contributor.
+ *
+ * @example
+ * // 1. Input:
+ * const routeId = "e4f1a23b-55c1-4822-9214-9981bc5ef3d1";
+ * const adminUserId = "00000000-0000-0000-0000-000000000001";
+ * const rejectionReason = "Coordinates go through private restricted forest sanctuary.";
+ *
+ * // 2. HTTP Request:
+ * // POST /admin/trek-routes/e4f1a23b-55c1-4822-9214-9981bc5ef3d1/reject
+ *
+ * // 3. What the Server returns:
+ * {
+ *   "id": "e4f1a23b-55c1-4822-9214-9981bc5ef3d1",
+ *   "trekId": "7a35cb99-5282-4fa0-8f9f-cf92c20698ba",
+ *   "verificationStatus": "rejected",
+ *   "rejectionReason": "Coordinates go through private restricted forest sanctuary.",
+ *   "verifiedAt": "2026-09-02T10:00:00.000Z"
+ * }
+ */
 export async function rejectTrekRoute(routeId: string, adminUserId: string, rejectionReason: string) {
   const existing = await db.trek_routes.findUnique({ where: { id: routeId } });
   if (!existing) {

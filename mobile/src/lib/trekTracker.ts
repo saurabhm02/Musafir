@@ -79,7 +79,21 @@ const OFFLINE_QUEUE_KEY_PREFIX = "@musafir_trek_queue_";
 const ACTIVE_OFFLINE_SESSION_KEY = "@musafir_active_offline_session";
 
 /**
- * Start a new persistent trek tracking session on the backend (or fallback to local session if offline)
+ * Starts a live trek tracking session. If connected, it creates the session on the
+ * backend server; if the traveler is in a zero-network mountain valley, it gracefully
+ * falls back to creating an offline session backed by the local offline package.
+ *
+ * @example
+ * // 1. Input:
+ * const session = await startTrekSession({
+ *   trekId: "7a35cb99-5282-4fa0-8f9f-cf92c20698ba",
+ *   trekRouteId: "c1f7a08b-2401-4ec9-8664-8830768e7ec8",
+ *   startLat: 31.5348,
+ *   startLon: 77.3780
+ * });
+ *
+ * // 2. Output:
+ * // Returns a TrekSession object with status "active" and point 0 recorded
  */
 export async function startTrekSession(params: {
   trekId: string;
@@ -145,7 +159,15 @@ export async function startTrekSession(params: {
 }
 
 /**
- * Ingest batch of GPS track points (flushes any queued offline points as well)
+ * Uploads a batch of GPS track points to the backend server. If offline, it
+ * buffers the points in local AsyncStorage to ensure no footsteps are lost.
+ *
+ * @example
+ * // 1. Input:
+ * await recordTrekPoints("sess_8a21f03d...", [
+ *   { lat: 31.5348, lon: 77.3780, altitude: 3120, sequence: 1, timestamp: "2026-09-02T10:00:10Z" },
+ *   { lat: 31.5362, lon: 77.3769, altitude: 3150, sequence: 2, timestamp: "2026-09-02T10:00:20Z" }
+ * ]);
  */
 export async function recordTrekPoints(
   sessionId: string,

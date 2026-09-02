@@ -82,6 +82,44 @@ export interface OfflineTrekPackage {
   mapBoundary: OfflineMapBoundary;
 }
 
+/**
+ * Generates a lightweight, self-contained offline package bundle for a verified trek route,
+ * including PostGIS LineString geometry, elevation profile, waypoints, and map bounding box.
+ *
+ * @example
+ * // 1. Input:
+ * const trekIdOrSlug = "raghupur-fort-trek";
+ * const routeId = "c1f7a08b-2401-4ec9-8664-8830768e7ec8";
+ *
+ * // 2. HTTP Request:
+ * // GET /treks/raghupur-fort-trek/offline-package?routeId=c1f7a08b-2401-4ec9-8664-8830768e7ec8
+ *
+ * // 3. What the Server returns:
+ * {
+ *   "packageVersion": "pkg_v1_c1f7a08b_1725283800000",
+ *   "sizeEstimateBytes": 124500,
+ *   "trek": {
+ *     "id": "7a35cb99-5282-4fa0-8f9f-cf92c20698ba",
+ *     "name": "Raghupur Fort Trek",
+ *     "slug": "raghupur-fort-trek",
+ *     "difficulty": "moderate",
+ *     "region": "Himachal Pradesh"
+ *   },
+ *   "route": {
+ *     "id": "c1f7a08b-2401-4ec9-8664-8830768e7ec8",
+ *     "name": "Jalori Pass to Raghupur Fort Trail",
+ *     "distanceKm": 3.5,
+ *     "elevationGainM": 340,
+ *     "geometry": { "type": "LineString", "coordinates": [ ... ] },
+ *     "waypoints": [ ... ]
+ *   },
+ *   "mapBoundary": {
+ *     "bbox": [77.365, 31.528, 77.388, 31.548],
+ *     "center": [77.3765, 31.5380],
+ *     "styleUrl": "https://tiles.openfreemap.org/styles/liberty"
+ *   }
+ * }
+ */
 export async function getOfflineTrekPackage(
   trekIdOrSlug: string,
   routeId?: string

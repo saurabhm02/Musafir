@@ -38,6 +38,72 @@ function getCacheKey(input: JourneyDiscoveryInput): string {
   return `${latRounded}_${lonRounded}_${target}_${pref}`;
 }
 
+/**
+ * Computes realistic, multimodal journey options from any origin GPS/city
+ * in India to a remote trek trailhead (combining flight, train, bus, and mountain taxi).
+ *
+ * @example
+ * // 1. Input:
+ * const input: JourneyDiscoveryInput = {
+ *   originLat: 21.3653, // Amgaon GPS
+ *   originLon: 80.3802,
+ *   trekId: "raghupur-fort-trek"
+ * };
+ *
+ * // 2. HTTP Request:
+ * // POST /journeys/discover
+ * // Body: { "originLat": 21.3653, "originLon": 80.3802, "trekId": "raghupur-fort-trek" }
+ *
+ * // 3. What the Server returns:
+ * {
+ *   "origin": { "title": "Amgaon", "lat": 21.3653, "lon": 80.3802 },
+ *   "trailhead": { "name": "Jalori Pass Trailhead", "lat": 31.5348, "lon": 77.3780 },
+ *   "journeys": [
+ *     {
+ *       "id": "opt_balanced_1",
+ *       "type": "balanced",
+ *       "title": "Fast Train + Volvo Bus + Mountain Cab",
+ *       "totalDurationMins": 1680, // 28 hrs
+ *       "totalCostInr": 3280,
+ *       "transfersCount": 3,
+ *       "legs": [
+ *         {
+ *           "mode": "train",
+ *           "originTitle": "Amgaon (AGN)",
+ *           "destTitle": "Gondia Jn (G)",
+ *           "durationMins": 30,
+ *           "costInr": 30,
+ *           "operator": "Indian Railways"
+ *         },
+ *         {
+ *           "mode": "train",
+ *           "originTitle": "Gondia Jn (G)",
+ *           "destTitle": "New Delhi (NDLS)",
+ *           "durationMins": 960,
+ *           "costInr": 1650,
+ *           "operator": "Indian Railways"
+ *         },
+ *         {
+ *           "mode": "bus",
+ *           "originTitle": "New Delhi (ISBT Kashmere Gate)",
+ *           "destTitle": "Aut Tunnel Hub",
+ *           "durationMins": 600,
+ *           "costInr": 1200,
+ *           "operator": "HRTC"
+ *         },
+ *         {
+ *           "mode": "shared_cab",
+ *           "originTitle": "Aut Tunnel Hub",
+ *           "destTitle": "Jalori Pass Trailhead",
+ *           "durationMins": 90,
+ *           "costInr": 400,
+ *           "operator": "Local Mountain Taxi"
+ *         }
+ *       ]
+ *     }
+ *   ]
+ * }
+ */
 export async function discoverJourneys(
   input: JourneyDiscoveryInput
 ): Promise<JourneyDiscoveryResult> {

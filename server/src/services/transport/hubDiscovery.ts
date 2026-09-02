@@ -8,6 +8,46 @@ export interface HubDiscoveryOptions {
   maxBusTerminals?: number;
 }
 
+/**
+ * Scans PostGIS spatial database to find the nearest transport hubs (airports,
+ * major railway junctions, local train stations, bus stands) around the traveler's GPS origin.
+ *
+ * @example
+ * // 1. Input:
+ * const lat = 21.3653; // Amgaon GPS
+ * const lon = 80.3802;
+ *
+ * // 2. Internal Call / Query:
+ * const hubs = await discoverNearbyOriginHubs(21.3653, 80.3802);
+ *
+ * // 3. Output Array:
+ * [
+ *   {
+ *     "id": "hub_agn_1",
+ *     "name": "Amgaon Railway Station",
+ *     "hubType": "railway_station",
+ *     "code": "AGN",
+ *     "city": "Amgaon",
+ *     "distanceKm": 1.2
+ *   },
+ *   {
+ *     "id": "hub_g_1",
+ *     "name": "Gondia Junction",
+ *     "hubType": "railway_junction",
+ *     "code": "G",
+ *     "city": "Gondia",
+ *     "distanceKm": 24.5
+ *   },
+ *   {
+ *     "id": "hub_nag_1",
+ *     "name": "Dr. Babasaheb Ambedkar International Airport",
+ *     "hubType": "airport",
+ *     "code": "NAG",
+ *     "city": "Nagpur",
+ *     "distanceKm": 142.0
+ *   }
+ * ]
+ */
 export async function discoverNearbyOriginHubs(
   lat: number,
   lon: number,
@@ -75,6 +115,37 @@ export async function discoverNearbyOriginHubs(
   }));
 }
 
+/**
+ * Finds nearby mountain transport hubs (bus stands, taxi unions, mountain transit junctions)
+ * around the destination trailhead coordinates.
+ *
+ * @example
+ * // 1. Input:
+ * const lat = 31.5348; // Jalori Pass Trailhead
+ * const lon = 77.3780;
+ *
+ * // 2. Internal Call:
+ * const destHubs = await discoverNearbyDestinationHubs(31.5348, 77.3780);
+ *
+ * // 3. Output Array:
+ * [
+ *   {
+ *     "id": "hub_aut_1",
+ *     "name": "Aut Tunnel Mountain Transit Hub",
+ *     "hubType": "mountain_hub",
+ *     "city": "Aut",
+ *     "distanceKm": 28.4
+ *   },
+ *   {
+ *     "id": "hub_kuu_1",
+ *     "name": "Kullu Bhuntar Airport",
+ *     "hubType": "airport",
+ *     "code": "KUU",
+ *     "city": "Bhuntar",
+ *     "distanceKm": 54.0
+ *   }
+ * ]
+ */
 export async function discoverNearbyDestinationHubs(
   lat: number,
   lon: number
