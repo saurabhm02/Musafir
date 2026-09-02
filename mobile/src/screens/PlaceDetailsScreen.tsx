@@ -22,6 +22,7 @@ import { fetchPoiMemories, type Memory } from "../lib/memories";
 import { fetchPoiStatusMap, setPoiStatus, type PoiStatus } from "../lib/poiStatus";
 import { fetchTrips, addTripStop, createTrip, type TripSummary } from "../lib/trips";
 import { fetchPoiDetails, type PoiDetails } from "../lib/pois";
+import { fetchNearbyTreks, type NearbyTrekItem } from "../lib/treks";
 import { colors } from "../theme";
 import { FullScreenPhotoViewer, type PhotoItem } from "../components/FullScreenPhotoViewer";
 import { AddToTripBottomSheet } from "../components/AddToTripBottomSheet";
@@ -141,6 +142,7 @@ export function PlaceDetailsScreen({ route, navigation }: Props) {
   const [trips, setTrips] = useState<TripSummary[]>([]);
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
   const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
+  const [nearbyTreks, setNearbyTreks] = useState<NearbyTrekItem[]>([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -148,7 +150,12 @@ export function PlaceDetailsScreen({ route, navigation }: Props) {
       fetchPoiMemories(poi.id).then((res) => setMemories(res.items)).catch(() => {});
       fetchPoiDetails(poi.id).then(setDetails).catch(() => {});
       fetchTrips().then(setTrips).catch(() => {});
-    }, [poi.id]),
+      if (poi.category !== "trek") {
+        fetchNearbyTreks(poi.lat, poi.lon, 60, 4)
+          .then(setNearbyTreks)
+          .catch(() => {});
+      }
+    }, [poi.id, poi.lat, poi.lon, poi.category]),
   );
 
   function handleTabPress(tab: TabType) {
@@ -366,6 +373,116 @@ export function PlaceDetailsScreen({ route, navigation }: Props) {
             <TouchableOpacity onPress={() => setReadMore((p) => !p)} style={styles.readMoreBtn}>
               <Text style={styles.readMoreText}>{readMore ? "Show less" : "Read more"}</Text>
             </TouchableOpacity>
+          )}
+
+          {/* Trek Direct Flow Card (if current place is a Trek) */}
+          {poi.category === "trek" && (
+            <TouchableOpacity
+              style={styles.viewTrekDetailsCard}
+              activeOpacity={0.88}
+              onPress={() => {
+                navigation.navigate("TrekDetails", {
+                  trekIdOrSlug: poi.id,
+                  poi,
+                });
+              }}
+            >
+              <View style={styles.viewTrekDetailsLeft}>
+                <Text style={styles.viewTrekDetailsTitle}>Explore Trail & Verified Routes</Text>
+                <Text style={styles.viewTrekDetailsSubtitle}>
+                  View elevation profile, waypoints, and verified routes
+                </Text>
+              </View>
+              <View style={styles.viewTrekDetailsArrow}>
+                <Text style={styles.viewTrekDetailsArrowText}>→</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Nearby Treks Section (when viewing destinations like Jibhi) */}
+          {poi.category !== "trek" && nearbyTreks.length > 0 && (
+            <View style={styles.nearbyTreksSection}>
+              <View style={styles.nearbyTreksHeaderRow}>
+                <Text style={styles.sectionHeader}>Nearby Treks</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (nearbyTreks[0]) {
+                      navigation.navigate("TrekDetails", {
+                        trekIdOrSlug: nearbyTreks[0].slug || nearbyTreks[0].id,
+                        poi: {
+                          ...poi,
+                          id: nearbyTreks[0].poiId,
+                          name: nearbyTreks[0].name,
+                          category: "trek",
+                          is_verified: true,
+                          photo_url: nearbyTreks[0].photoUrl,
+                          avg_rating: nearbyTreks[0].ratingAvg,
+                          total_ratings: nearbyTreks[0].ratingCount,
+                        },
+                      });
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.seeAllText}>See all</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.trekCardList}>
+                {nearbyTreks.map((trek) => (
+                  <TouchableOpacity
+                    key={trek.id}
+                    style={styles.trekCard}
+                    activeOpacity={0.88}
+                    onPress={() => {
+                      navigation.navigate("TrekDetails", {
+                        trekIdOrSlug: trek.slug || trek.id,
+                        poi: {
+                          ...poi,
+                          id: trek.poiId,
+                          name: trek.name,
+                          category: "trek",
+                          is_verified: true,
+                          photo_url: trek.photoUrl,
+                          avg_rating: trek.ratingAvg,
+                          total_ratings: trek.ratingCount,
+                        },
+                      });
+                    }}
+                  >
+                    {trek.photoUrl ? (
+                      <Image source={{ uri: trek.photoUrl }} style={styles.trekCardImage} resizeMode="cover" />
+                    ) : (
+                      <View style={[styles.trekCardImage, styles.trekCardImagePlaceholder]}>
+                        <MountainSmallIcon size={22} color={colors.accent} />
+                      </View>
+                    )}
+
+                    <View style={styles.trekCardContent}>
+                      <Text style={styles.trekCardTitle} numberOfLines={1}>
+                        {trek.name}
+                      </Text>
+                      <Text style={styles.trekCardSubtitle}>
+                        {trek.distanceKm ? `${trek.distanceKm} km • ` : ""}
+                        {trek.difficulty || "Moderate"}
+                      </Text>
+                      <View style={styles.trekCardBottomRow}>
+                        <Text style={styles.trekDistanceText}>
+                          {`${trek.distanceFromPlaceKm} km from ${poi.name}`}
+                        </Text>
+                        {trek.ratingAvg > 0 && (
+                          <View style={styles.trekRatingBadge}>
+                            <StarIcon size={11} />
+                            <Text style={styles.trekRatingValue}>{trek.ratingAvg.toFixed(1)}</Text>
+                            <Text style={styles.trekRatingCount}>{`(${trek.ratingCount})`}</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
           )}
 
           {/* Photos Gallery Section */}
@@ -927,5 +1044,127 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+  viewTrekDetailsCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.accentSoft,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: "#FDBA74",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  viewTrekDetailsLeft: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  viewTrekDetailsTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: colors.accent,
+  },
+  viewTrekDetailsSubtitle: {
+    fontSize: 12,
+    color: colors.inkSoft,
+    marginTop: 2,
+  },
+  viewTrekDetailsArrow: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.accent,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  viewTrekDetailsArrowText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+    fontSize: 14,
+  },
+  nearbyTreksSection: {
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  nearbyTreksHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  seeAllText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.accent,
+  },
+  trekCardList: {
+    gap: 12,
+  },
+  trekCard: {
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  trekCardImage: {
+    width: 76,
+    height: 76,
+    borderRadius: 12,
+  },
+  trekCardImagePlaceholder: {
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  trekCardContent: {
+    flex: 1,
+    marginLeft: 12,
+    justifyContent: "center",
+  },
+  trekCardTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.ink,
+    letterSpacing: -0.2,
+  },
+  trekCardSubtitle: {
+    fontSize: 12.5,
+    color: colors.inkSoft,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  trekCardBottomRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 6,
+  },
+  trekDistanceText: {
+    fontSize: 11.5,
+    color: colors.inkMuted,
+  },
+  trekRatingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  trekRatingValue: {
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: colors.ink,
+  },
+  trekRatingCount: {
+    fontSize: 10.5,
+    color: colors.inkMuted,
   },
 });

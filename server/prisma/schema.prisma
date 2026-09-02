@@ -39,6 +39,9 @@ model users {
   user_visited_pois user_visited_pois[]
   collections       collections[]
   notifications     notifications[]
+  submitted_trek_routes trek_routes[] @relation("submitted_trek_routes")
+  verified_trek_routes  trek_routes[] @relation("verified_trek_routes")
+  trek_sessions         trek_sessions[]
 }
 
 model routes {
@@ -105,6 +108,7 @@ model pois {
   poi_metadata  poi_metadata?
   poi_photos        poi_photos[]
   poi_routes        poi_routes[]
+  treks             treks?
   user_saved_pois   user_saved_pois[]
   user_want_to_go   user_want_to_go[]
   user_visited_pois user_visited_pois[]
@@ -292,16 +296,25 @@ model memories {
   ai_description    String?
   taken_at          DateTime?                  @db.Timestamptz(6)
   location          Unsupported("geography")?
+  trek_id           String?                    @db.Uuid
+  trek_route_id     String?                    @db.Uuid
+  trek_session_id   String?                    @db.Uuid
   created_at        DateTime?                  @default(now()) @db.Timestamptz(6)
   updated_at        DateTime?                  @default(now()) @db.Timestamptz(6)
   deleted_at        DateTime?                  @db.Timestamptz(6)
   pois              pois?                      @relation(fields: [poi_id], references: [id], onDelete: Cascade)
   users             users?                     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  treks             treks?                     @relation(fields: [trek_id], references: [id], onDelete: SetNull)
+  trek_routes       trek_routes?               @relation(fields: [trek_route_id], references: [id], onDelete: SetNull)
+  trek_sessions     trek_sessions?             @relation(fields: [trek_session_id], references: [id], onDelete: SetNull)
 
   @@index([location], map: "memories_location_gix", type: Gist)
   @@index([user_id], map: "memories_user_id_idx")
   @@index([poi_id], map: "memories_poi_id_idx")
   @@index([trip_id], map: "memories_trip_id_idx")
+  @@index([trek_id], map: "memories_trek_id_idx")
+  @@index([trek_route_id], map: "memories_trek_route_id_idx")
+  @@index([trek_session_id], map: "memories_trek_session_id_idx")
   @@index([visibility, status, moderation_status], map: "memories_visibility_status_idx")
 }
 
@@ -405,5 +418,164 @@ model notifications {
   @@unique([user_id, idempotency_key], map: "notifications_user_idempotency_unique")
   @@index([user_id, is_read, created_at(sort: Desc)], map: "notifications_user_unread_idx")
 }
+
+model treks {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  poi_id      String        @unique @db.Uuid
+  name        String
+  slug        String        @unique
+  region      String?
+  difficulty  String?
+  summary     String?       @db.Text
+  best_months Int[]         @default([])
+  created_at  DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime      @default(now()) @db.Timestamptz(6)
+  pois        pois          @relation(fields: [poi_id], references: [id], onDelete: Cascade)
+  routes      trek_routes[]
+  memories    memories[]
+  sessions    trek_sessions[]
+
+  @@index([poi_id], map: "treks_poi_id_idx")
+  @@index([difficulty], map: "treks_difficulty_idx")
+}
+
+model trek_routes {
+  id                  String                             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  trek_id             String                             @db.Uuid
+  name                String
+  route_type          String                             @default("out_and_back")
+  geometry            Unsupported("geography(linestring, 4326)")?
+  distance_km         Decimal?                           @db.Decimal
+  elevation_gain_m    Decimal?                           @db.Decimal
+  elevation_loss_m    Decimal?                           @db.Decimal
+  min_elevation_m     Decimal?                           @db.Decimal
+  max_elevation_m     Decimal?                           @db.Decimal
+  start_point_name    String?
+  end_point_name      String?
+  start_location      Unsupported("geography(point, 4326)")?
+  end_location        Unsupported("geography(point, 4326)")?
+  waypoints           Json                               @default("[]")
+  elevation_profile   Json                               @default("[]")
+  source_type         String                             @default("openstreetmap")
+  source_id           String?
+  source_url          String?
+  source_license      String                             @default("ODbL 1.0")
+  verification_status String                             @default("pending")
+  confidence          String                             @default("unverified")
+  submitted_by        String?                            @db.Uuid
+  verified_by         String?                            @db.Uuid
+  verified_at         DateTime?                          @db.Timestamptz(6)
+  rejection_reason    String?                            @db.Text
+  is_primary          Boolean                            @default(false)
+  created_at          DateTime                           @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime                           @default(now()) @db.Timestamptz(6)
+  treks               treks                              @relation(fields: [trek_id], references: [id], onDelete: Cascade)
+  submitter           users?                             @relation("submitted_trek_routes", fields: [submitted_by], references: [id], onDelete: SetNull)
+  verifier            users?                             @relation("verified_trek_routes", fields: [verified_by], references: [id], onDelete: SetNull)
+  memories            memories[]
+  sessions            trek_sessions[]
+
+  @@index([trek_id, verification_status], map: "trek_routes_trek_status_idx")
+  @@index([submitted_by], map: "trek_routes_submitted_by_idx")
+  @@index([geometry], map: "trek_routes_geometry_gix", type: Gist)
+}
+
+model transport_hubs {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String
+  hub_type          String
+  code              String?
+  city              String?
+  state             String?
+  location          Unsupported("geography(point, 4326)")
+  importance        Int                 @default(1)
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+  origin_corridors  transit_corridors[] @relation("origin_corridors")
+  dest_corridors    transit_corridors[] @relation("dest_corridors")
+
+  @@index([hub_type], map: "transport_hubs_type_idx")
+  @@index([code], map: "transport_hubs_code_idx")
+}
+
+model transit_corridors {
+  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  origin_hub_id      String         @db.Uuid
+  dest_hub_id        String         @db.Uuid
+  mode               String
+  operator           String?
+  service_name       String?
+  duration_mins      Int
+  distance_km        Decimal?       @db.Decimal
+  estimated_cost_inr Int            @default(0)
+  frequency          String?        @default("daily")
+  departure_times    Json           @default("[]")
+  booking_url        String?
+  data_status        String         @default("scheduled")
+  created_at         DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime       @default(now()) @db.Timestamptz(6)
+  origin_hub         transport_hubs @relation("origin_corridors", fields: [origin_hub_id], references: [id], onDelete: Cascade)
+  dest_hub           transport_hubs @relation("dest_corridors", fields: [dest_hub_id], references: [id], onDelete: Cascade)
+
+  @@index([origin_hub_id, dest_hub_id], map: "transit_corridors_od_idx")
+  @@index([mode], map: "transit_corridors_mode_idx")
+}
+
+model trek_sessions {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id             String               @db.Uuid
+  trek_id             String               @db.Uuid
+  trek_route_id       String?              @db.Uuid
+  status              String               @default("active")
+  started_at          DateTime             @default(now()) @db.Timestamptz(6)
+  paused_at           DateTime?            @db.Timestamptz(6)
+  resumed_at          DateTime?            @db.Timestamptz(6)
+  completed_at        DateTime?            @db.Timestamptz(6)
+  actual_distance_km  Decimal?             @default(0) @db.Decimal
+  actual_duration_sec Int?                 @default(0)
+  elevation_gain_m    Decimal?             @default(0) @db.Decimal
+  elevation_loss_m    Decimal?             @default(0) @db.Decimal
+  highest_altitude_m  Decimal?             @db.Decimal
+  lowest_altitude_m   Decimal?             @db.Decimal
+  points_count        Int                  @default(0)
+  geometry            Unsupported("geography(linestring, 4326)")?
+  start_location      Unsupported("geography(point, 4326)")?
+  end_location        Unsupported("geography(point, 4326)")?
+  metadata            Json?                @default("{}")
+  created_at          DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime             @default(now()) @db.Timestamptz(6)
+  users               users                @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  treks               treks                @relation(fields: [trek_id], references: [id], onDelete: Cascade)
+  trek_routes         trek_routes?         @relation(fields: [trek_route_id], references: [id], onDelete: SetNull)
+  track_points        trek_track_points[]
+  memories            memories[]
+
+  @@index([user_id, status], map: "trek_sessions_user_status_idx")
+  @@index([trek_id], map: "trek_sessions_trek_id_idx")
+  @@index([geometry], map: "trek_sessions_geometry_gix", type: Gist)
+}
+
+model trek_track_points {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id  String         @db.Uuid
+  lat         Float
+  lon         Float
+  location    Unsupported("geography(point, 4326)")
+  altitude    Float?
+  accuracy    Float?
+  speed       Float?
+  heading     Float?
+  timestamp   DateTime       @db.Timestamptz(6)
+  sequence    Int
+  is_paused   Boolean        @default(false)
+  created_at  DateTime       @default(now()) @db.Timestamptz(6)
+  session     trek_sessions  @relation(fields: [session_id], references: [id], onDelete: Cascade)
+
+  @@unique([session_id, sequence], map: "trek_track_points_session_seq_uniq")
+  @@index([session_id, timestamp], map: "trek_track_points_session_ts_idx")
+  @@index([location], map: "trek_track_points_location_gix", type: Gist)
+}
+
+
 
 
