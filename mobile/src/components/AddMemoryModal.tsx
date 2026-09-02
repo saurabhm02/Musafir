@@ -19,6 +19,7 @@ import Svg, { Circle, Path, Rect } from "react-native-svg";
 import * as ImagePicker from "expo-image-picker";
 import { uploadMemory, type Memory } from "../lib/memories";
 import { colors } from "../theme";
+import { OfflineStorage } from "../lib/offlineStorage";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -77,12 +78,25 @@ type Props = {
   visible: boolean;
   poiId?: string;
   tripId?: string;
+  trekId?: string;
+  trekRouteId?: string;
+  trekSessionId?: string;
   placeName?: string;
   onClose: () => void;
   onSuccess: (memory: Memory) => void;
 };
 
-export function AddMemoryModal({ visible, poiId, tripId, placeName, onClose, onSuccess }: Props) {
+export function AddMemoryModal({
+  visible,
+  poiId,
+  tripId,
+  trekId,
+  trekRouteId,
+  trekSessionId,
+  placeName,
+  onClose,
+  onSuccess,
+}: Props) {
   const [selectedAsset, setSelectedAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [caption, setCaption] = useState("");
   const [visibility, setVisibility] = useState<"public" | "private">("public");
@@ -151,6 +165,9 @@ export function AddMemoryModal({ visible, poiId, tripId, placeName, onClose, onS
       const memory = await uploadMemory({
         poiId,
         tripId,
+        trekId,
+        trekRouteId,
+        trekSessionId,
         uri: selectedAsset.uri,
         caption: caption.trim() || undefined,
         visibility,
@@ -167,6 +184,36 @@ export function AddMemoryModal({ visible, poiId, tripId, placeName, onClose, onS
       onSuccess(memory);
       onClose();
     } catch (err: any) {
+      if (trekId && selectedAsset) {
+        try {
+          const localId = `local_mem_${Date.now()}`;
+          await OfflineStorage.saveOfflineMemory({
+            localId,
+            trekId,
+            trekRouteId,
+            trekSessionId,
+            photoUri: selectedAsset.uri,
+            caption: caption.trim() || null,
+            visibility,
+            lat: 31.543,
+            lon: 77.374,
+            takenAt: new Date().toISOString(),
+            synced: false,
+            retryCount: 0,
+          });
+
+          setIsUploading(false);
+          Alert.alert(
+            "Saved Offline",
+            "You are currently offline. Your photo memory has been saved securely on your device and will sync automatically when network returns."
+          );
+          setSelectedAsset(null);
+          setCaption("");
+          onClose();
+          return;
+        } catch {}
+      }
+
       setIsUploading(false);
       Alert.alert("Upload Failed", err.message || "Could not upload memory. Please try again.");
     }

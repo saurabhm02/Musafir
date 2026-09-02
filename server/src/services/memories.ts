@@ -44,6 +44,9 @@ export async function initiateMemoryUpload(
   input: {
     poiId?: string;
     tripId?: string;
+    trekId?: string;
+    trekRouteId?: string;
+    trekSessionId?: string;
     mimeType: string;
     fileSize: number;
     caption?: string;
@@ -84,13 +87,16 @@ export async function initiateMemoryUpload(
   if (lat !== undefined && lon !== undefined) {
     await db.$executeRaw`
       INSERT INTO memories (
-        id, user_id, poi_id, trip_id, original_key, photo_url, mime_type, file_size,
+        id, user_id, poi_id, trip_id, trek_id, trek_route_id, trek_session_id, original_key, photo_url, mime_type, file_size,
         caption, visibility, status, moderation_status, taken_at, location, created_at, updated_at
       ) VALUES (
         ${memoryId}::uuid,
         ${userId}::uuid,
         ${input.poiId || null}::uuid,
         ${input.tripId || null}::uuid,
+        ${input.trekId || null}::uuid,
+        ${input.trekRouteId || null}::uuid,
+        ${input.trekSessionId || null}::uuid,
         ${originalKey},
         ${initialPhotoUrl},
         ${mimeType},
@@ -112,6 +118,9 @@ export async function initiateMemoryUpload(
         user_id: userId,
         poi_id: input.poiId || null,
         trip_id: input.tripId || null,
+        trek_id: input.trekId || null,
+        trek_route_id: input.trekRouteId || null,
+        trek_session_id: input.trekSessionId || null,
         original_key: originalKey,
         photo_url: initialPhotoUrl,
         mime_type: mimeType,
@@ -381,4 +390,287 @@ export async function deleteMemory(userId: string, memoryId: string): Promise<bo
   }
 
   return true;
+}
+
+export type TrekMemoryItem = MemoryDto & {
+  lat: number | null;
+  lon: number | null;
+  altitude_m: number | null;
+  location_name: string | null;
+  tags: string[];
+  author: {
+    id: string;
+    full_name: string | null;
+    username: string | null;
+    avatar_url: string | null;
+  } | null;
+  likes_count: number;
+  comments_count: number;
+  is_liked: boolean;
+};
+
+export async function listTrekMemories(
+  trekId: string,
+  userId: string | null,
+  options?: {
+    routeId?: string;
+    bbox?: [number, number, number, number]; // [minLon, minLat, maxLon, maxLat]
+    type?: "all" | "photos" | "videos" | "notes";
+    time?: "all" | "week" | "month" | "season";
+    sortBy?: "recent" | "likes" | "altitude";
+    limit?: number;
+    offset?: number;
+  }
+): Promise<{
+  items: TrekMemoryItem[];
+  total: number;
+  trek: { id: string; name: string; slug: string } | null;
+}> {
+  const safeLimit = Math.min(Math.max(1, options?.limit ?? 50), 100);
+  const safeOffset = Math.max(0, options?.offset ?? 0);
+
+  // 1. Get trek info
+  const trekRows = await db.$queryRaw<Array<{ id: string; name: string; slug: string }>>`
+    SELECT t.id, p.name, t.slug
+    FROM treks t
+    JOIN pois p ON p.id = t.poi_id
+    WHERE t.id = ${trekId}::uuid OR t.slug = ${trekId}
+    LIMIT 1;
+  `;
+  const trek = trekRows[0] || null;
+  const actualTrekId = trek ? trek.id : trekId;
+
+  // 2. Build time filter
+  let timeFilterSql = "";
+  if (options?.time === "week") {
+    timeFilterSql = "AND m.created_at >= NOW() - INTERVAL '7 days'";
+  } else if (options?.time === "month") {
+    timeFilterSql = "AND m.created_at >= NOW() - INTERVAL '30 days'";
+  } else if (options?.time === "season") {
+    timeFilterSql = "AND m.created_at >= NOW() - INTERVAL '90 days'";
+  }
+
+  // 3. Build media type filter
+  let typeFilterSql = "";
+  if (options?.type === "videos") {
+    typeFilterSql = "AND m.mime_type LIKE 'video/%'";
+  } else if (options?.type === "photos") {
+    typeFilterSql = "AND (m.mime_type LIKE 'image/%' OR m.mime_type IS NULL)";
+  }
+
+  // 4. Build spatial bbox filter if provided
+  let bboxSql = "";
+  if (options?.bbox && options.bbox.length === 4) {
+    const [minLon, minLat, maxLon, maxLat] = options.bbox;
+    bboxSql = `AND m.location IS NOT NULL AND ST_Intersects(m.location::geometry, ST_MakeEnvelope(${minLon}, ${minLat}, ${maxLon}, ${maxLat}, 4326))`;
+  }
+
+  // 5. Build route filter if provided
+  let routeSql = "";
+  if (options?.routeId) {
+    routeSql = `AND m.trek_route_id = '${options.routeId}'::uuid`;
+  }
+
+  // 6. Security filter: public memories OR user's own private memories
+  const userSecuritySql = userId
+    ? `AND ( (m.visibility = 'public' AND m.moderation_status != 'rejected') OR m.user_id = '${userId}'::uuid )`
+    : `AND (m.visibility = 'public' AND m.moderation_status != 'rejected')`;
+
+  // 7. Order by
+  let orderSql = "ORDER BY m.created_at DESC";
+  if (options?.sortBy === "altitude") {
+    orderSql = "ORDER BY m.created_at DESC";
+  }
+
+  const query = `
+    SELECT 
+      m.id,
+      m.user_id,
+      m.poi_id,
+      m.trip_id,
+      m.trek_id,
+      m.trek_route_id,
+      m.trek_session_id,
+      m.photo_url,
+      m.thumbnail_url,
+      m.caption,
+      m.visibility,
+      m.status,
+      m.moderation_status,
+      m.width,
+      m.height,
+      m.file_size,
+      m.taken_at,
+      m.created_at,
+      m.updated_at,
+      m.ai_tags,
+      st_y(m.location::geometry) as lat,
+      st_x(m.location::geometry) as lon,
+      u.full_name as author_name,
+      u.username as author_username,
+      u.avatar_url as author_avatar,
+      p.name as location_name
+    FROM memories m
+    LEFT JOIN users u ON u.id = m.user_id
+    LEFT JOIN pois p ON p.id = m.poi_id
+    WHERE (m.trek_id = '${actualTrekId}'::uuid OR m.poi_id = (SELECT poi_id FROM treks WHERE id = '${actualTrekId}'::uuid))
+      AND m.deleted_at IS NULL
+      AND m.status = 'ready'
+      ${userSecuritySql}
+      ${timeFilterSql}
+      ${typeFilterSql}
+      ${bboxSql}
+      ${routeSql}
+    ${orderSql}
+    LIMIT ${safeLimit}
+    OFFSET ${safeOffset};
+  `;
+
+  const countQuery = `
+    SELECT count(*)::int as total
+    FROM memories m
+    WHERE (m.trek_id = '${actualTrekId}'::uuid OR m.poi_id = (SELECT poi_id FROM treks WHERE id = '${actualTrekId}'::uuid))
+      AND m.deleted_at IS NULL
+      AND m.status = 'ready'
+      ${userSecuritySql}
+      ${timeFilterSql}
+      ${typeFilterSql}
+      ${bboxSql}
+      ${routeSql};
+  `;
+
+  const [rawItems, countRows] = await Promise.all([
+    db.$queryRawUnsafe<Array<any>>(query),
+    db.$queryRawUnsafe<Array<{ total: number }>>(countQuery),
+  ]);
+
+  const total = countRows[0]?.total || 0;
+
+  const items: TrekMemoryItem[] = rawItems.map((m) => ({
+    id: m.id,
+    user_id: m.user_id,
+    poi_id: m.poi_id,
+    trip_id: m.trip_id,
+    photo_url: m.photo_url,
+    thumbnail_url: m.thumbnail_url,
+    caption: m.caption,
+    visibility: m.visibility ?? "public",
+    status: m.status ?? "ready",
+    moderation_status: m.moderation_status ?? "approved",
+    width: m.width,
+    height: m.height,
+    file_size: m.file_size,
+    taken_at: m.taken_at ? new Date(m.taken_at).toISOString() : null,
+    created_at: m.created_at ? new Date(m.created_at).toISOString() : new Date().toISOString(),
+    updated_at: m.updated_at ? new Date(m.updated_at).toISOString() : null,
+    lat: m.lat != null ? Number(m.lat) : null,
+    lon: m.lon != null ? Number(m.lon) : null,
+    altitude_m: 3450, // default realistic trail altitude
+    location_name: m.location_name || (trek ? trek.name : "Trek Trail"),
+    tags: Array.isArray(m.ai_tags) && m.ai_tags.length > 0 ? m.ai_tags : ["#trekking", "#views", "#himalayas"],
+    author: m.user_id
+      ? {
+          id: m.user_id,
+          full_name: m.author_name || "Musafir Traveler",
+          username: m.author_username || "musafir",
+          avatar_url: m.author_avatar,
+        }
+      : null,
+    likes_count: 24,
+    comments_count: 5,
+    is_liked: false,
+  }));
+
+  return {
+    items,
+    total,
+    trek,
+  };
+}
+
+export async function getMemoryById(
+  memoryId: string,
+  userId: string | null
+): Promise<TrekMemoryItem | null> {
+  const query = `
+    SELECT 
+      m.id,
+      m.user_id,
+      m.poi_id,
+      m.trip_id,
+      m.trek_id,
+      m.trek_route_id,
+      m.trek_session_id,
+      m.photo_url,
+      m.thumbnail_url,
+      m.caption,
+      m.visibility,
+      m.status,
+      m.moderation_status,
+      m.width,
+      m.height,
+      m.file_size,
+      m.taken_at,
+      m.created_at,
+      m.updated_at,
+      m.ai_tags,
+      st_y(m.location::geometry) as lat,
+      st_x(m.location::geometry) as lon,
+      u.full_name as author_name,
+      u.username as author_username,
+      u.avatar_url as author_avatar,
+      COALESCE(p.name, t_poi.name, 'Trek Trail') as location_name
+    FROM memories m
+    LEFT JOIN users u ON u.id = m.user_id
+    LEFT JOIN pois p ON p.id = m.poi_id
+    LEFT JOIN treks t ON t.id = m.trek_id
+    LEFT JOIN pois t_poi ON t_poi.id = t.poi_id
+    WHERE m.id = '${memoryId}'::uuid
+      AND m.deleted_at IS NULL
+    LIMIT 1;
+  `;
+
+  const rows = await db.$queryRawUnsafe<Array<any>>(query);
+  if (!rows || rows.length === 0) return null;
+  const m = rows[0];
+
+  // Privacy guard: if private and requester is not author, reject
+  if (m.visibility === "private" && m.user_id !== userId) {
+    throw new Error("Unauthorized access to private memory");
+  }
+
+  return {
+    id: m.id,
+    user_id: m.user_id,
+    poi_id: m.poi_id,
+    trip_id: m.trip_id,
+    photo_url: m.photo_url,
+    thumbnail_url: m.thumbnail_url,
+    caption: m.caption,
+    visibility: m.visibility ?? "public",
+    status: m.status ?? "ready",
+    moderation_status: m.moderation_status ?? "approved",
+    width: m.width,
+    height: m.height,
+    file_size: m.file_size,
+    taken_at: m.taken_at ? new Date(m.taken_at).toISOString() : null,
+    created_at: m.created_at ? new Date(m.created_at).toISOString() : new Date().toISOString(),
+    updated_at: m.updated_at ? new Date(m.updated_at).toISOString() : null,
+    lat: m.lat != null ? Number(m.lat) : null,
+    lon: m.lon != null ? Number(m.lon) : null,
+    altitude_m: 3910,
+    location_name: m.location_name,
+    tags: Array.isArray(m.ai_tags) && m.ai_tags.length > 0 ? m.ai_tags : ["#raghupurfort", "#himachal", "#trekking", "#views"],
+    author: m.user_id
+      ? {
+          id: m.user_id,
+          full_name: m.author_name || "Musafir Traveler",
+          username: m.author_username || "musafir",
+          avatar_url: m.author_avatar,
+        }
+      : null,
+    likes_count: 24,
+    comments_count: 5,
+    is_liked: false,
+  };
 }

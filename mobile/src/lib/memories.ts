@@ -66,6 +66,9 @@ export async function fetchMyMemories(limit = 30, offset = 0): Promise<MemoriesL
 export async function uploadMemory(input: {
   poiId?: string;
   tripId?: string;
+  trekId?: string;
+  trekRouteId?: string;
+  trekSessionId?: string;
   uri: string;
   caption?: string;
   visibility: "public" | "private";
@@ -81,6 +84,9 @@ export async function uploadMemory(input: {
     body: JSON.stringify({
       poiId: input.poiId,
       tripId: input.tripId,
+      trekId: input.trekId,
+      trekRouteId: input.trekRouteId,
+      trekSessionId: input.trekSessionId,
       mimeType,
       fileSize,
       caption: input.caption,
@@ -167,4 +173,55 @@ export async function revokeAdminMemory(id: string): Promise<{ ok: boolean; id: 
 
 export async function deleteAdminMemory(id: string): Promise<{ ok: boolean }> {
   return api(`/api/admin/memories/${id}`, { method: "DELETE" });
+}
+
+export type TrekMemoryItem = Memory & {
+  lat: number | null;
+  lon: number | null;
+  altitude_m: number | null;
+  location_name: string | null;
+  tags: string[];
+  author: {
+    id: string;
+    full_name: string | null;
+    username: string | null;
+    avatar_url: string | null;
+  } | null;
+  likes_count: number;
+  comments_count: number;
+  is_liked: boolean;
+};
+
+export type TrekMemoriesResponse = {
+  items: TrekMemoryItem[];
+  total: number;
+  trek: { id: string; name: string; slug: string } | null;
+};
+
+export async function fetchTrekMemories(
+  trekId: string,
+  params?: {
+    routeId?: string;
+    bbox?: [number, number, number, number];
+    type?: "all" | "photos" | "videos" | "notes";
+    time?: "all" | "week" | "month" | "season";
+    sortBy?: "recent" | "likes" | "altitude";
+    limit?: number;
+    offset?: number;
+  }
+): Promise<TrekMemoriesResponse> {
+  const query = new URLSearchParams();
+  if (params?.routeId) query.set("routeId", params.routeId);
+  if (params?.type && params.type !== "all") query.set("type", params.type);
+  if (params?.time && params.time !== "all") query.set("time", params.time);
+  if (params?.sortBy) query.set("sortBy", params.sortBy);
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.offset) query.set("offset", String(params.offset));
+  if (params?.bbox) query.set("bbox", params.bbox.join(","));
+
+  return api<TrekMemoriesResponse>(`/treks/${trekId}/memories?${query.toString()}`);
+}
+
+export async function fetchMemoryById(memoryId: string): Promise<TrekMemoryItem> {
+  return api<TrekMemoryItem>(`/memories/${memoryId}`);
 }
