@@ -17,6 +17,10 @@ import { profileRoutes } from "./routes/profile";
 import { savedPlacesRoutes } from "./routes/savedPlaces";
 import { wantToGoRoutes } from "./routes/wantToGo";
 import { visitedPoisRoutes } from "./routes/visitedPois";
+import { treksRoutes } from "./routes/treks";
+import { adminTrekRoutes } from "./routes/adminTrekRoutes";
+import { journeysRoutes } from "./routes/journeys";
+import { trekTrackingRoutes } from "./routes/trekTracking";
 
 Bun.serve({
   port: 3001,
@@ -30,6 +34,10 @@ Bun.serve({
     ...wantToGoRoutes,
     ...visitedPoisRoutes,
     ...poisRoutes,
+    ...treksRoutes,
+    ...adminTrekRoutes,
+    ...journeysRoutes,
+    ...trekTrackingRoutes,
     ...memoriesRoutes,
     ...routeSearchRoutes,
     ...corridorSearchRoutes,
