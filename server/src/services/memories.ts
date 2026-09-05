@@ -633,11 +633,11 @@ export async function listTrekMemories(
     tags: Array.isArray(m.ai_tags) && m.ai_tags.length > 0 ? m.ai_tags : ["#trekking", "#views", "#himalayas"],
     author: m.user_id
       ? {
-          id: m.user_id,
-          full_name: m.author_name || "Musafir Traveler",
-          username: m.author_username || "musafir",
-          avatar_url: m.author_avatar,
-        }
+        id: m.user_id,
+        full_name: m.author_name || "Musafir Traveler",
+        username: m.author_username || "musafir",
+        avatar_url: m.author_avatar,
+      }
       : null,
     likes_count: 24,
     comments_count: 5,
@@ -756,11 +756,11 @@ export async function getMemoryById(
     tags: Array.isArray(m.ai_tags) && m.ai_tags.length > 0 ? m.ai_tags : ["#raghupurfort", "#himachal", "#trekking", "#views"],
     author: m.user_id
       ? {
-          id: m.user_id,
-          full_name: m.author_name || "Musafir Traveler",
-          username: m.author_username || "musafir",
-          avatar_url: m.author_avatar,
-        }
+        id: m.user_id,
+        full_name: m.author_name || "Musafir Traveler",
+        username: m.author_username || "musafir",
+        avatar_url: m.author_avatar,
+      }
       : null,
     likes_count: 24,
     comments_count: 5,
