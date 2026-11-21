@@ -1,4 +1,4 @@
-import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { ensureSession } from "./supabase";
 
 const SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL;
@@ -6,7 +6,9 @@ const SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL;
 // Input: a locally picked photo's uri
 // Output: a resized (max 1080px wide) jpeg's uri, ready to upload
 export async function compressImage(uri: string): Promise<string> {
-  const result = await manipulateAsync(uri, [{ resize: { width: 1080 } }], {
+  const context = ImageManipulator.manipulate(uri).resize({ width: 1080 });
+  const image = await context.renderAsync();
+  const result = await image.saveAsync({
     compress: 0.7,
     format: SaveFormat.JPEG,
   });
