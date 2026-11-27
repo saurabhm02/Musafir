@@ -15,7 +15,7 @@
         "expo-dev-client": "~57.0.13",
         "expo-image-manipulator": "~58.0.16",
         "expo-image-picker": "~58.0.10",
-        "expo-location": "~58.0.22",
+        "expo-location": "~58.0.23",
         "expo-status-bar": "~58.0.5",
         "react": "19.2.3",
         "react-native": "0.86.2",
@@ -553,7 +553,7 @@
 
     "expo-keep-awake": ["expo-keep-awake@57.0.1", "", { "peerDependencies": { "expo": "*", "react": "*" } }, "sha512-28lkFImeXTS+bhAjuCFV7w7tW5bXg27BJVrxv+nC/nyYa86qEa0oFeHwqol6ha5k4pdVDQgBF09GM4A1k76Ssg=="],
 
-    "expo-location": ["expo-location@58.0.22", "", { "dependencies": { "@expo/image-utils": "^0.12.7" }, "peerDependencies": { "expo": "*", "expo-task-manager": "*", "react": "*", "react-native": "*" }, "optionalPeers": ["expo-task-manager"] }, "sha512-riZCEjY9//enExdweKSMNvjGS2AGCNG7Z8NJa+3GP5In+ZtrPdkbnhPo3JHwhWZE0NE72yv2t+AKPWauen3fkA=="],
+    "expo-location": ["expo-location@58.0.23", "", { "dependencies": { "@expo/image-utils": "^0.12.7" }, "peerDependencies": { "expo": "*", "expo-task-manager": "*", "react": "*", "react-native": "*" }, "optionalPeers": ["expo-task-manager"] }, "sha512-uGKJkguf3v2mUsmK2GtvuvSx6++Aj1yZHIrRhbyO2yz+bwNMKN3lJgK89BQ4M9aszkGeg8hVpWClPyK8RglARg=="],
 
     "expo-manifests": ["expo-manifests@57.0.1", "", { "dependencies": { "expo-json-utils": "~57.0.1" }, "peerDependencies": { "expo": "*" } }, "sha512-qB/mDG2dYdl+EvUeQuqP8KFYCFgFCQjJYdWIHo8SFBgDzMYmdF286DFY2M1M9Okr99wkb5M4tgA3aCcwv3aEQA=="],
 
